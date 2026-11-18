@@ -4,12 +4,20 @@ description: >-
   del buscador del Ministerio de Educación y geocodificados con el directorio de
   la Junta de Andalucía y CartoCiudad. Fuente oficial, curso 2024/2025.
 databases:
-  todofp:
-    description: Registro de centros + oferta de enseñanzas por centro.
+  centros:
+    description: >-
+      Registro de centros + oferta de enseñanzas. Empieza por la tabla
+      <a href="mapa">mapa</a>: el mapa aparece justo debajo de las facetas.
+      Para buscar por titulación, usa
+      <a href="oferta_mapa?_facet=ensenanza&_facet_size=8">oferta_mapa</a>.
     tables:
+      mapa:
+        description: >-
+          Un centro por fila, con coordenadas. Filtra por provincia o
+          naturaleza y el mapa se actualiza. Las coordenadas vienen del
+          directorio de la Junta de Andalucía (precisión oficial) o de
+          CartoCiudad (portal, callejero o centro del municipio).
       oferta_mapa:
         description: >-
           Una fila por centro y enseñanza impartida, con coordenadas.
-          Filtra por provincia, grado o enseñanza en las facetas.
-      centros:
-        description: Datos de contacto y localización de cada centro.
+          Filtra por enseñanza o grado para ver qué centros la imparten.

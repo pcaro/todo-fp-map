@@ -89,54 +89,65 @@ uv run datasette data/todofp.sqlite --metadata datasette/metadata.yml --port 800
 `datasette-cluster-map` detecta `lat`/`lng` y pinta un mapa con clusters; las
 facetas de provincia, grado y enseñanza filtran también el mapa.
 
-## Publicarlo: gist + Datasette Lite
+## Verlo publicado: Datasette Lite
+
+Dos enlaces listos para abrir (no hace falta instalar nada, Datasette corre en el
+navegador con Pyodide):
+
+**Mapa de centros** — una fila por centro, el mapa sale arriba del todo:
+
+<https://lite.datasette.io/?install=datasette-maplibre&s.settings.max_returned_rows=40000&s.plugins.datasette-maplibre.container=div.metadata-description&url=https://gist.githubusercontent.com/pcaro/d63731c6da641fb97b9643cfcb977e2b/raw/centros.sqlite&metadata=https://gist.githubusercontent.com/pcaro/d63731c6da641fb97b9643cfcb977e2b/raw/metadata.yml#/centros/mapa?_facet=provincia&_facet_size=8%23map=6.6/37.4/-4.7&color=provincia>
+
+**Centros por enseñanza** — una fila por centro y enseñanza; filtra por
+titulación o grado en las facetas y el mapa se actualiza:
+
+<https://lite.datasette.io/?install=datasette-maplibre&s.settings.max_returned_rows=40000&s.plugins.datasette-maplibre.container=div.metadata-description&url=https://gist.githubusercontent.com/pcaro/d63731c6da641fb97b9643cfcb977e2b/raw/centros.sqlite&metadata=https://gist.githubusercontent.com/pcaro/d63731c6da641fb97b9643cfcb977e2b/raw/metadata.yml#/centros/oferta_mapa?_facet=ensenanza&_facet=grado&_facet_size=8%23map=6.6/37.4/-4.7&color=grado>
+
+La URL tiene cinco partes que importan:
+
+| Parámetro | Para qué |
+|---|---|
+| `install=datasette-maplibre` | plugin que pinta el mapa (MapLibre + OpenFreeMap). Sin esto no hay mapa |
+| `s.plugins.datasette-maplibre.container=div.metadata-description` | mueve el mapa de debajo de las facetas a debajo del título |
+| `s.settings.max_returned_rows=40000` | sin esto Datasette corta en 1.000 filas y el mapa sale incompleto |
+| `url=` / `metadata=` | la BD y el metadata, desde el gist (sirve CORS abierto) |
+| `#/centros/mapa?...` | la tabla y las facetas iniciales. `%23map=z/lat/lng` y `&color=provincia` son del plugin |
+
+Los `?s.*` solo funcionan en Datasette 1.0a8+; por eso **no** se pone `?ref=stable`.
+`uv run todofp url <gist>` los genera, y con `--estable` da la variante 0.65.
+
+## Publicar una versión nueva
 
 ```bash
-uv run todofp lite                      # data/todofp.sqlite (~12 MB, sin tabla oferta)
+uv run todofp lite            # data/centros.sqlite (~5 MB Andalucía, ~25 MB España)
+uv run todofp build           # o todo el pipeline antes
 ```
 
 `gh gist create` **no acepta binarios**, así que el .sqlite se sube con git (un
-gist es un repo git). El helper de credenciales de `gh` se encarga del push:
+gist es un repo git) usando el helper de credenciales de `gh`:
 
 ```bash
-# 1) crea el gist con el metadata
 URL=$(gh gist create datasette/metadata.yml \
         --desc "Centros de FP: enseñanzas, dirección y coordenadas" | tail -1)
-
-# 2) clona el gist, mete la BD y empuja
-git clone "$URL.git" /tmp/gist-todofp
-cp data/todofp.sqlite /tmp/gist-todofp/
-cd /tmp/gist-todofp && git add -A && git commit -m "Añade la base de datos" && git push
-```
-
-La URL `raw` del gist (`https://gist.githubusercontent.com/<usuario>/<id>/raw/todofp.sqlite`)
-sirve CORS abierto, que es lo que Datasette Lite necesita. Genera la URL lista
-para abrir:
-
-```bash
+git clone "$URL.git" /tmp/gist
+cp data/centros.sqlite datasette/metadata.yml /tmp/gist/
+cd /tmp/gist && git add -A && git commit -m "Añade la base de datos" && git push
 uv run todofp url "$URL"
 ```
 
-Queda así (partida en líneas):
+### Límites de los gists (medidos, no supuestos)
 
-```
-https://lite.datasette.io/?install=datasette-cluster-map
-  &s.plugins.datasette-cluster-map.max_limit=40000
-  &s.settings.max_returned_rows=40000
-  &url=https://gist.githubusercontent.com/<usuario>/<id>/raw/todofp.sqlite
-  &metadata=https://gist.githubusercontent.com/<usuario>/<id>/raw/metadata.yml
-  #/todofp/oferta_mapa?_facet=provincia&_facet=grado&_facet=ensenanza
-```
+| Límite | Valor | Comprobación |
+|---|---|---|
+| Tamaño por fichero | **100 MiB**, bloqueado en el push | 105 MiB → `pre-receive hook declined` |
+| Aviso al pasar de 50 MiB | warning `GH001`, pero sube | 60 MiB → push OK en 6 s |
+| Subida por la web | 25 MiB | documentación de GitHub |
+| Ficheros por gist / gists por cuenta | sin límite documentado | — |
+| `raw` de un gist | sirve el fichero entero, con `Range` y CORS `*` | 60 MiB descargados, md5 idéntico, 206 parcial |
 
-Detalles que importan:
-
-- **Sin `?ref=stable`** para que cargue Datasette 1.0 alpha, que es la única que
-  entiende los ajustes `?s.*`. Son los que suben el tope de filas: sin ellos
-  Datasette corta en 1.000 y el mapa solo pinta una parte (verificado: con los
-  ajustes, un `_size=20000` devuelve 20.000 filas). `--estable` genera la
-  variante 0.65, sin ajustes.
-- El nombre del fichero manda: `todofp.sqlite` → base de datos `todofp` en las URLs.
-- Gist secreto (por defecto) vale igual: la URL `raw` funciona para quien la tenga.
+Ojo: un gist es un repo git y **el histórico cuenta**. Republicar cada día un
+fichero de 25 MB acumula objetos; si vas a iterar mucho, crea un gist nuevo por
+versión o publica en un repo normal usando Releases.
 
 ## Notas sobre las fuentes
 

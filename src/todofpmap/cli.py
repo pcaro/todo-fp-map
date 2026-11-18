@@ -161,8 +161,9 @@ async def cmd_geocode(args: argparse.Namespace) -> None:
 
 def cmd_mapa(args: argparse.Namespace) -> None:
     conn = db.conectar(args.db)
-    total = db.crea_tabla_mapa(conn)
-    _consola(f"→ tabla oferta_mapa regenerada: {total} filas")
+    centros, ofertas = db.crea_tabla_mapa(conn)
+    _consola(f"→ tabla mapa regenerada: {centros} centros")
+    _consola(f"→ tabla oferta_mapa regenerada: {ofertas} filas")
 
 
 def cmd_stats(args: argparse.Namespace) -> None:
@@ -193,10 +194,15 @@ def cmd_lite(args: argparse.Namespace) -> None:
     copia.executescript(
         """
         DROP TABLE IF EXISTS oferta;
+        DROP TABLE IF EXISTS centros;
         DROP INDEX IF EXISTS idx_centros_provincia;
-        UPDATE oferta_mapa SET lat = round(lat, 5), lng = round(lng, 5);
-        UPDATE centros SET lat = round(lat, 5), lng = round(lng, 5);
-        DELETE FROM centros WHERE lat IS NULL;
+        CREATE TABLE oferta_mapa_slim AS
+            SELECT centro_codigo, denominacion, municipio, provincia, grado, familia,
+                   ensenanza, modalidad, round(lat, 5) AS lat, round(lng, 5) AS lng
+            FROM oferta_mapa;
+        DROP TABLE oferta_mapa;
+        ALTER TABLE oferta_mapa_slim RENAME TO oferta_mapa;
+        UPDATE mapa SET lat = round(lat, 5), lng = round(lng, 5);
         VACUUM;
         """
     )
@@ -222,21 +228,34 @@ def cmd_url(args: argparse.Namespace) -> None:
         pass
     elif "/raw/" in base:
         base = base.split("/raw/")[0] + "/raw"
-    ajustes = ""
     if args.estable:
-        # Datasette 0.65 no entiende ?s.* y el mapa se queda en 1000 puntos
-        ajustes = "&ref=stable"
-    else:
-        ajustes = (
-            "&s.plugins.datasette-cluster-map.max_limit=40000"
-            "&s.settings.max_returned_rows=40000"
+        # Datasette 0.65 no entiende ?s.* ni datasette-maplibre (que pide 1.0a43+)
+        comun = (
+            "https://lite.datasette.io/?ref=stable&install=datasette-cluster-map"
+            f"&url={base}/{args.nombre}"
+            f"&metadata={base}/metadata.yml"
         )
-    print(
-        "https://lite.datasette.io/?install=datasette-cluster-map"
-        f"{ajustes}"
+        print("Mapa (Datasette 0.65, se queda en 1.000 puntos):")
+        print(f"{comun}#/centros/mapa?_facet=provincia&_facet_size=8")
+        return
+
+    # datasette-maplibre exige Datasette 1.0a43+, que es lo que carga Lite por defecto.
+    # container mueve el mapa de "debajo de las facetas" a "debajo del título":
+    # sin eso hay que hacer scroll para verlo.
+    comun = (
+        "https://lite.datasette.io/?install=datasette-maplibre"
+        "&s.settings.max_returned_rows=40000"
+        "&s.plugins.datasette-maplibre.container=div.metadata-description"
         f"&url={base}/{args.nombre}"
         f"&metadata={base}/metadata.yml"
-        "#/todofp/oferta_mapa?_facet=provincia&_facet=grado&_facet=ensenanza"
+    )
+    print("Mapa de centros (una fila por centro):")
+    print(f"{comun}#/centros/mapa?_facet=provincia&_facet_size=8%23map=6.6/37.4/-4.7&color=provincia")
+    print()
+    print("Centros por enseñanza (filtra por grado o titulación):")
+    print(
+        f"{comun}#/centros/oferta_mapa?_facet=ensenanza&_facet=grado&_facet_size=8"
+        "%23map=6.6/37.4/-4.7&color=grado"
     )
 
 
@@ -286,12 +305,12 @@ def _parser() -> argparse.ArgumentParser:
     build.set_defaults(func=cmd_build, asincrono=False)
 
     lite = sub.add_parser("lite", help="BD reducida para gist + Datasette Lite")
-    lite.add_argument("--salida", type=Path, default=Path("data/todofp.sqlite"))
+    lite.add_argument("--salida", type=Path, default=Path("data/centros.sqlite"))
     lite.set_defaults(func=cmd_lite, asincrono=False)
 
     url = sub.add_parser("url", help="imprime la URL de Datasette Lite para un gist")
     url.add_argument("gist", help="URL del gist (gist.github.com/... o .../raw)")
-    url.add_argument("--nombre", default="todofp.sqlite", help="nombre del fichero en el gist")
+    url.add_argument("--nombre", default="centros.sqlite", help="nombre del fichero en el gist")
     url.add_argument(
         "--estable",
         action="store_true",

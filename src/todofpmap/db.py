@@ -77,6 +77,29 @@ CREATE INDEX idx_mapa_grado ON oferta_mapa (grado);
 CREATE INDEX idx_mapa_ensenanza ON oferta_mapa (ensenanza);
 """
 
+#: Una fila por centro: es la tabla de aterrizaje del mapa.
+#: Con oferta_mapa el mapa queda enterrado bajo las facetas y el navegador
+#: tiene que pintar 4 veces más marcadores.
+TABLA_CENTROS_MAPA = """
+DROP TABLE IF EXISTS mapa;
+CREATE TABLE mapa AS
+SELECT
+    c.codigo,
+    c.denominacion,
+    c.municipio,
+    c.provincia,
+    c.naturaleza,
+    c.tipo_centro,
+    c.domicilio,
+    c.cod_postal,
+    (SELECT count(*) FROM oferta o WHERE o.centro_codigo = c.codigo) AS n_ensenanzas,
+    c.lat,
+    c.lng,
+    c.geo_precision
+FROM centros c
+WHERE c.lat IS NOT NULL;
+"""
+
 
 def conectar(ruta: Path) -> sqlite3.Connection:
     ruta.parent.mkdir(parents=True, exist_ok=True)
@@ -192,10 +215,12 @@ def guarda_coords(
     conn.commit()
 
 
-def crea_tabla_mapa(conn: sqlite3.Connection) -> int:
-    conn.executescript(TABLA_MAPA)
+def crea_tabla_mapa(conn: sqlite3.Connection) -> tuple[int, int]:
+    conn.executescript(TABLA_MAPA + TABLA_CENTROS_MAPA)
     conn.commit()
-    return conn.execute("SELECT count(*) FROM oferta_mapa").fetchone()[0]
+    centros = conn.execute("SELECT count(*) FROM mapa").fetchone()[0]
+    ofertas = conn.execute("SELECT count(*) FROM oferta_mapa").fetchone()[0]
+    return centros, ofertas
 
 
 def estadisticas(conn: sqlite3.Connection) -> dict[str, object]:
