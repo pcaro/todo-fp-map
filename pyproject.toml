@@ -9,6 +9,9 @@ dependencies = [
     "xlrd>=2.0.2",
 ]
 
+[project.urls]
+Repository = "https://github.com/pcaro/todo-fp-map"
+
 [project.scripts]
 todofp = "todofpmap.cli:main"
 

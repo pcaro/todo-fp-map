@@ -3,6 +3,8 @@
 Centros de FP de España en una base SQLite: **qué imparte cada centro**, con
 dirección y coordenadas, listo para montar un mapa.
 
+<https://github.com/pcaro/todo-fp-map>
+
 La fuente principal es el [buscador de centros del Ministerio de Educación
 (todofp.es)](https://todofp.es/que-estudiar/grados-d.html), que expone el
 registro estatal completo en unos endpoints POST sin documentar. Este proyecto
