@@ -1,5 +1,5 @@
 [project]
-name = "todofp-map"
+name = "todo-fp-map"
 version = "0.1.0"
 description = "Centros de FP de España en SQLite: qué imparte cada centro, con dirección y coordenadas"
 readme = "README.md"
