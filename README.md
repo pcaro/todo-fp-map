@@ -3,6 +3,11 @@
 Centros de FP de España en una base SQLite: **qué imparte cada centro**, con
 dirección y coordenadas, listo para montar un mapa.
 
+Solo Formación Profesional: ciclos de grado básico, medio y superior (LOE, LOGSE
+y LFP) y cursos de especialización. Se descartan ESO, Bachillerato, Primaria,
+Infantil, adultos, idiomas, música, danza, artes plásticas y enseñanzas
+deportivas. Para tenerlo todo, `--todo`.
+
 <https://github.com/pcaro/todo-fp-map>
 
 La fuente principal es el [buscador de centros del Ministerio de Educación
@@ -70,7 +75,7 @@ centros(codigo PK, ccaa, provincia, municipio, localidad, denominacion,
         cod_postal, telefono, fax, email, web, lat, lng, geo_fuente,
         geo_precision, detalle_ok, actualizado)
 
-oferta(centro_codigo, grado, familia, ensenanza, modalidad)   -- PK compuesta
+oferta(centro_codigo, grado, familia, ensenanza, modalidad, es_fp)  -- PK compuesta
 
 oferta_mapa(centro_codigo, denominacion, municipio, localidad, provincia,
             naturaleza, tipo_centro, domicilio, cod_postal, grado, familia,
@@ -79,6 +84,11 @@ oferta_mapa(centro_codigo, denominacion, municipio, localidad, provincia,
 
 `oferta_mapa` es una **tabla**, no una vista, porque Datasette no ofrece facetas
 sobre vistas.
+
+`oferta.es_fp` se calcula con `db.es_fp()` a partir del grado, y `mapa` y
+`oferta_mapa` se construyen filtrando por ahí: `mapa` incluye solo centros que
+imparten al menos una enseñanza de FP, y `n_ensenanzas` cuenta solo esas.
+`todofp mapa` regenera ambas (con `--todo`, sin filtro).
 
 ## Verlo en local con Datasette
 

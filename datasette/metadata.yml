@@ -6,18 +6,20 @@ description: >-
 databases:
   centros:
     description: >-
-      Registro de centros + oferta de enseñanzas. Empieza por la tabla
+      Solo Formación Profesional: ciclos de grado básico, medio y superior
+      (LOE, LOGSE y LFP) y cursos de especialización. Fuera quedan ESO,
+      Bachillerato, idiomas, música, danza y artes. Empieza por la tabla
       <a href="mapa">mapa</a>: el mapa aparece justo debajo de las facetas.
       Para buscar por titulación, usa
       <a href="oferta_mapa?_facet=ensenanza&_facet_size=8">oferta_mapa</a>.
     tables:
       mapa:
         description: >-
-          Un centro por fila, con coordenadas. Filtra por provincia o
-          naturaleza y el mapa se actualiza. Las coordenadas vienen del
+          Un centro que imparte FP por fila, con coordenadas. Filtra por
+          provincia o naturaleza y el mapa se actualiza. Las coordenadas vienen del
           directorio de la Junta de Andalucía (precisión oficial) o de
           CartoCiudad (portal, callejero o centro del municipio).
       oferta_mapa:
         description: >-
-          Una fila por centro y enseñanza impartida, con coordenadas.
+          Una fila por centro y enseñanza de FP impartida, con coordenadas.
           Filtra por enseñanza o grado para ver qué centros la imparten.

@@ -161,9 +161,10 @@ async def cmd_geocode(args: argparse.Namespace) -> None:
 
 def cmd_mapa(args: argparse.Namespace) -> None:
     conn = db.conectar(args.db)
-    centros, ofertas = db.crea_tabla_mapa(conn)
-    _consola(f"→ tabla mapa regenerada: {centros} centros")
-    _consola(f"→ tabla oferta_mapa regenerada: {ofertas} filas")
+    centros, ofertas = db.crea_tabla_mapa(conn, solo_fp=not args.todo)
+    etiqueta = "todo" if args.todo else "solo FP"
+    _consola(f"→ tabla mapa regenerada ({etiqueta}): {centros} centros")
+    _consola(f"→ tabla oferta_mapa regenerada ({etiqueta}): {ofertas} filas")
 
 
 def cmd_stats(args: argparse.Namespace) -> None:
@@ -288,7 +289,8 @@ def _parser() -> argparse.ArgumentParser:
     geo.add_argument("--cache", type=Path, default=CACHE_ANDALUCIA)
     geo.set_defaults(func=cmd_geocode, asincrono=True)
 
-    mapa = sub.add_parser("mapa", help="regenera la tabla oferta_mapa")
+    mapa = sub.add_parser("mapa", help="regenera las tablas mapa y oferta_mapa (solo FP)")
+    mapa.add_argument("--todo", action="store_true", help="incluye también ESO, idiomas, música…")
     mapa.set_defaults(func=cmd_mapa, asincrono=False)
 
     stats = sub.add_parser("stats", help="resumen de la BD")
@@ -302,6 +304,7 @@ def _parser() -> argparse.ArgumentParser:
     build.add_argument("--solo-lista", action="store_true")
     build.add_argument("--refrescar", action="store_true")
     build.add_argument("--rehacer", action="store_true")
+    build.add_argument("--todo", action="store_true")
     build.set_defaults(func=cmd_build, asincrono=False)
 
     lite = sub.add_parser("lite", help="BD reducida para gist + Datasette Lite")

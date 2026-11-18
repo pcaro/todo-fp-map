@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS oferta (
     familia       TEXT NOT NULL DEFAULT '',
     ensenanza     TEXT NOT NULL,
     modalidad     TEXT NOT NULL DEFAULT '',
+    es_fp         INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (centro_codigo, grado, familia, ensenanza, modalidad)
 );
 
@@ -70,7 +71,7 @@ SELECT
     c.geo_fuente
 FROM oferta o
 JOIN centros c ON c.codigo = o.centro_codigo
-WHERE c.lat IS NOT NULL;
+WHERE c.lat IS NOT NULL /*FILTRO_FP*/;
 
 CREATE INDEX idx_mapa_provincia ON oferta_mapa (provincia);
 CREATE INDEX idx_mapa_grado ON oferta_mapa (grado);
@@ -92,13 +93,31 @@ SELECT
     c.tipo_centro,
     c.domicilio,
     c.cod_postal,
-    (SELECT count(*) FROM oferta o WHERE o.centro_codigo = c.codigo) AS n_ensenanzas,
+    (SELECT count(*) FROM oferta o
+      WHERE o.centro_codigo = c.codigo /*FILTRO_FP*/) AS n_ensenanzas,
     c.lat,
     c.lng,
     c.geo_precision
 FROM centros c
-WHERE c.lat IS NOT NULL;
+WHERE c.lat IS NOT NULL
+  AND EXISTS (SELECT 1 FROM oferta o
+               WHERE o.centro_codigo = c.codigo /*FILTRO_FP*/);
 """
+
+
+def es_fp(grado: str) -> int:
+    """1 si el grado es Formación Profesional.
+
+    Quedan fuera ESO, Bachillerato, Primaria/Infantil, adultos, idiomas, música,
+    danza, artes plásticas y diseño y enseñanzas deportivas (régimen especial).
+    Los cursos de especialización de FP sí entran.
+    """
+    g = (grado or "").strip().casefold()
+    return int(
+        "formación profesional" in g
+        or g.startswith("grado d. ciclos formativos")
+        or "formativos de fp" in g
+    )
 
 
 def conectar(ruta: Path) -> sqlite3.Connection:
@@ -108,6 +127,15 @@ def conectar(ruta: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.executescript(ESQUEMA)
+    columnas = {fila[1] for fila in conn.execute("PRAGMA table_info(oferta)")}
+    if "es_fp" not in columnas:
+        conn.execute("ALTER TABLE oferta ADD COLUMN es_fp INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
+    pendientes = conn.execute("SELECT DISTINCT grado FROM oferta WHERE es_fp = 0").fetchall()
+    for (grado,) in pendientes:
+        if es_fp(grado):
+            conn.execute("UPDATE oferta SET es_fp = 1 WHERE grado = ?", (grado,))
+    conn.commit()
     return conn
 
 
@@ -183,8 +211,9 @@ def guarda_detalle(
     conn.execute("DELETE FROM oferta WHERE centro_codigo = ?", (codigo,))
     conn.executemany(
         """
-        INSERT OR IGNORE INTO oferta (centro_codigo, grado, familia, ensenanza, modalidad)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT OR IGNORE INTO oferta
+            (centro_codigo, grado, familia, ensenanza, modalidad, es_fp)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         [
             (
@@ -193,6 +222,7 @@ def guarda_detalle(
                 o.get("familia", ""),
                 o.get("ensenanza", ""),
                 o.get("modalidad", ""),
+                es_fp(o.get("grado", "")),
             )
             for o in ofertas
         ],
@@ -215,8 +245,10 @@ def guarda_coords(
     conn.commit()
 
 
-def crea_tabla_mapa(conn: sqlite3.Connection) -> tuple[int, int]:
-    conn.executescript(TABLA_MAPA + TABLA_CENTROS_MAPA)
+def crea_tabla_mapa(conn: sqlite3.Connection, solo_fp: bool = True) -> tuple[int, int]:
+    filtro = "AND o.es_fp = 1" if solo_fp else ""
+    sql = (TABLA_MAPA + TABLA_CENTROS_MAPA).replace("/*FILTRO_FP*/", filtro)
+    conn.executescript(sql)
     conn.commit()
     centros = conn.execute("SELECT count(*) FROM mapa").fetchone()[0]
     ofertas = conn.execute("SELECT count(*) FROM oferta_mapa").fetchone()[0]
@@ -230,6 +262,7 @@ def estadisticas(conn: sqlite3.Connection) -> dict[str, object]:
         "con_detalle": uno("SELECT count(*) FROM centros WHERE detalle_ok = 1"),
         "con_coords": uno("SELECT count(*) FROM centros WHERE lat IS NOT NULL"),
         "oferta": uno("SELECT count(*) FROM oferta"),
+        "oferta_fp": uno("SELECT count(*) FROM oferta WHERE es_fp = 1"),
         "provincias": uno("SELECT count(DISTINCT provincia) FROM centros"),
         "geocodificacion": [
             dict(fila)
