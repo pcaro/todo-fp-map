@@ -7,7 +7,7 @@ distintas**, sacados del registro oficial del Ministerio de Educación.
 ## Mapa
 
 Datos del curso 2024/2025. No hay que instalar nada: Datasette corre en el
-navegador y la base de datos (10 MB) se descarga desde un gist.
+navegador y la base de datos (7,3 MB) se descarga desde un gist.
 
 | Vista | Qué muestra | Abrir |
 |---|---|---|
@@ -112,7 +112,7 @@ uv run todofp build --ccaa 01 --limite 20
 |---|---|---|
 | `fetch` | 1 + una por centro | Listado (código, denominación, domicilio, CP, teléfono) y ficha con grado, familia, enseñanza y modalidad |
 | `geocode` | 1 descarga + ~1 por centro | `lat`/`lng` con precisión: `oficial`, `portal`, `callejero`, `localidad`, `municipio` |
-| `mapa` | 0 | `mapa` (un punto por centro) y `oferta_mapa` (centro × enseñanza), solo FP |
+| `mapa` | 0 | recrea las vistas `mapa` (un punto por centro) y `oferta_mapa` (centro × enseñanza), solo FP |
 
 Reanudable: si cortas `fetch` o `geocode`, vuelve a lanzarlo y sigue donde lo
 dejó (`detalle_ok` marca las fichas descargadas y el geocode solo toca
@@ -137,9 +137,15 @@ oferta_mapa(centro_codigo, denominacion, municipio, localidad, provincia,
             ensenanza, modalidad, lat, lng, geo_precision, geo_fuente)
 ```
 
-`mapa` y `oferta_mapa` son **tablas**, no vistas, porque Datasette no ofrece
-facetas sobre vistas. `oferta.es_fp` se calcula con `db.es_fp()` a partir del
-grado; ambas tablas se construyen filtrando por ahí.
+`mapa` y `oferta_mapa` son **vistas** sobre `centros` y `oferta`: el join se
+hace al vuelo y no hay datos duplicados que se queden obsoletos al volver a
+geocodificar. Datasette 1.0 ofrece facetas y filtros sobre vistas igual que
+sobre tablas (lo que **no** soporta es faceta sobre una consulta SQL suelta:
+ahí no hay `?facet_results`). `oferta.es_fp` se calcula con `db.es_fp()` a
+partir del grado y las vistas filtran por ahí.
+
+Esa decisión se nota en el fichero: con tablas materializadas eran 10,5 MB y con
+vistas 7,3 MB, porque `oferta` es la única copia de la relación centro-enseñanza.
 
 ## Verlo en local con Datasette
 
@@ -180,7 +186,7 @@ Los `?s.*` solo funcionan en Datasette 1.0a8+, por eso **no** se pone
 ## Publicar una versión nueva
 
 ```bash
-uv run todofp lite    # data/centros.sqlite
+uv run todofp lite    # data/centros.sqlite: 7,3 MB (recorta filas, no esquema)
 ```
 
 `gh gist create` **no acepta binarios**, así que el .sqlite se sube con git (un

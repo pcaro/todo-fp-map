@@ -161,10 +161,11 @@ async def cmd_geocode(args: argparse.Namespace) -> None:
 
 def cmd_mapa(args: argparse.Namespace) -> None:
     conn = db.conectar(args.db)
-    centros, ofertas = db.crea_tabla_mapa(conn, solo_fp=not args.todo)
-    etiqueta = "todo" if args.todo else "solo FP"
-    _consola(f"→ tabla mapa regenerada ({etiqueta}): {centros} centros")
-    _consola(f"→ tabla oferta_mapa regenerada ({etiqueta}): {ofertas} filas")
+    if args.todo:
+        centros, ofertas = db.crea_vistas(conn, solo_fp=False, sufijo="_todo")
+        _consola(f"→ vistas mapa_todo / oferta_mapa_todo: {centros} centros, {ofertas} filas")
+    centros, ofertas = db.crea_vistas(conn)
+    _consola(f"→ vistas mapa / oferta_mapa (solo FP): {centros} centros, {ofertas} filas")
 
 
 def cmd_stats(args: argparse.Namespace) -> None:
@@ -192,22 +193,31 @@ def cmd_lite(args: argparse.Namespace) -> None:
     origen.backup(copia)
     origen.close()
 
+    # Las vistas necesitan sus tablas, así que se recortan filas: fuera las
+    # enseñanzas que no son FP y los centros que no imparten FP o no tienen
+    # coordenadas. 5 decimales de lat/lng son 1 m: de sobra y ahorra bytes.
     copia.executescript(
         """
-        DROP TABLE IF EXISTS oferta;
-        DROP TABLE IF EXISTS centros;
+        PRAGMA foreign_keys = OFF;
+        -- hay que soltar las vistas antes de recrear las tablas que leen
+        DROP VIEW IF EXISTS oferta_mapa;
+        DROP VIEW IF EXISTS mapa;
+        DELETE FROM oferta WHERE es_fp = 0;
+        DELETE FROM centros
+         WHERE lat IS NULL
+            OR codigo NOT IN (SELECT centro_codigo FROM oferta);
+        UPDATE centros SET lat = round(lat, 5), lng = round(lng, 5);
+        -- la PK compuesta de 5 columnas cuesta tanto como la tabla y en un
+        -- artefacto de solo lectura no sirve de nada
+        CREATE TABLE oferta_sin_pk AS SELECT * FROM oferta;
+        DROP TABLE oferta;
+        ALTER TABLE oferta_sin_pk RENAME TO oferta;
+        DROP INDEX IF EXISTS idx_oferta_ensenanza;
         DROP INDEX IF EXISTS idx_centros_provincia;
-        CREATE TABLE oferta_mapa_slim AS
-            SELECT centro_codigo, denominacion, ensenanza, grado, familia, modalidad,
-                   provincia, municipio, naturaleza, tipo_centro,
-                   round(lat, 5) AS lat, round(lng, 5) AS lng
-            FROM oferta_mapa;
-        DROP TABLE oferta_mapa;
-        ALTER TABLE oferta_mapa_slim RENAME TO oferta_mapa;
-        UPDATE mapa SET lat = round(lat, 5), lng = round(lng, 5);
         VACUUM;
         """
     )
+    db.crea_vistas(copia)
     copia.commit()
     copia.close()
     megas = destino.stat().st_size / 1_048_576
@@ -290,7 +300,7 @@ def _parser() -> argparse.ArgumentParser:
     geo.add_argument("--cache", type=Path, default=CACHE_ANDALUCIA)
     geo.set_defaults(func=cmd_geocode, asincrono=True)
 
-    mapa = sub.add_parser("mapa", help="regenera las tablas mapa y oferta_mapa (solo FP)")
+    mapa = sub.add_parser("mapa", help="recrea las vistas mapa y oferta_mapa (solo FP)")
     mapa.add_argument("--todo", action="store_true", help="incluye también ESO, idiomas, música…")
     mapa.set_defaults(func=cmd_mapa, asincrono=False)
 

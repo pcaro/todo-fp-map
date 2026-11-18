@@ -21,9 +21,9 @@ databases:
           naturaleza. La columna n_ensenanzas cuenta sus titulaciones de FP.
       centros:
         description: >-
-          Datos de contacto de los 35.310 centros del registro (incluye los que
-          no imparten FP).
+          Datos de contacto de los centros que imparten FP y tienen coordenadas
+          (en la base completa hay 35.310, aquí solo los del mapa).
       oferta:
         description: >-
-          Todas las enseñanzas de cada centro (135.336 filas). es_fp = 1 marca
-          las de Formación Profesional.
+          Una fila por centro y enseñanza de FP (es_fp = 1). La vista
+          oferta_mapa es este join con centros.

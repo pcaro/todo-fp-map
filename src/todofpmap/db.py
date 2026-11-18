@@ -46,11 +46,13 @@ CREATE INDEX IF NOT EXISTS idx_oferta_ensenanza ON oferta (ensenanza);
 CREATE INDEX IF NOT EXISTS idx_centros_provincia ON centros (provincia);
 """
 
-#: Tabla desnormalizada lista para el mapa (una fila por centro y enseñanza).
-#: Es una tabla real, no una vista, porque Datasette no ofrece facetas en vistas.
-TABLA_MAPA = """
-DROP TABLE IF EXISTS oferta_mapa;
-CREATE TABLE oferta_mapa AS
+#: Vistas que alimentan el mapa y las facetas. Son vistas, no tablas: Datasette
+#: 1.0 facetas y filtra sobre vistas igual que sobre tablas, así que la
+#: duplicación no aporta nada (y se quedaba obsoleta al geocodificar).
+#: ``/*FILTRO_FP*/`` se sustituye por el filtro de FP o por nada (``--todo``).
+VISTAS = """
+DROP VIEW IF EXISTS {sufijo}oferta_mapa;
+CREATE VIEW {sufijo}oferta_mapa AS
 SELECT
     c.codigo        AS centro_codigo,
     c.denominacion,
@@ -73,17 +75,8 @@ FROM oferta o
 JOIN centros c ON c.codigo = o.centro_codigo
 WHERE c.lat IS NOT NULL /*FILTRO_FP*/;
 
-CREATE INDEX idx_mapa_provincia ON oferta_mapa (provincia);
-CREATE INDEX idx_mapa_grado ON oferta_mapa (grado);
-CREATE INDEX idx_mapa_ensenanza ON oferta_mapa (ensenanza);
-"""
-
-#: Una fila por centro: es la tabla de aterrizaje del mapa.
-#: Con oferta_mapa el mapa queda enterrado bajo las facetas y el navegador
-#: tiene que pintar 4 veces más marcadores.
-TABLA_CENTROS_MAPA = """
-DROP TABLE IF EXISTS mapa;
-CREATE TABLE mapa AS
+DROP VIEW IF EXISTS {sufijo}mapa;
+CREATE VIEW {sufijo}mapa AS
 SELECT
     c.codigo,
     c.denominacion,
@@ -120,6 +113,25 @@ def es_fp(grado: str) -> int:
     )
 
 
+def crea_vistas(
+    conn: sqlite3.Connection, solo_fp: bool = True, sufijo: str = ""
+) -> tuple[int, int]:
+    """(Re)crea las vistas del mapa. Con ``sufijo="_todo"`` no filtra por FP."""
+    # versiones anteriores materializaban estas vistas como tablas
+    for nombre in (f"{sufijo}mapa", f"{sufijo}oferta_mapa"):
+        fila = conn.execute("SELECT type FROM sqlite_master WHERE name = ?", (nombre,)).fetchone()
+        if fila and fila[0] == "table":
+            conn.execute(f"DROP TABLE {nombre}")
+    conn.commit()
+    filtro = "AND o.es_fp = 1" if solo_fp else ""
+    sql = VISTAS.format(sufijo=sufijo).replace("/*FILTRO_FP*/", filtro)
+    conn.executescript(sql)
+    conn.commit()
+    centros = conn.execute(f"SELECT count(*) FROM {sufijo}mapa").fetchone()[0]
+    ofertas = conn.execute(f"SELECT count(*) FROM {sufijo}oferta_mapa").fetchone()[0]
+    return centros, ofertas
+
+
 def conectar(ruta: Path) -> sqlite3.Connection:
     ruta.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(ruta)
@@ -136,6 +148,7 @@ def conectar(ruta: Path) -> sqlite3.Connection:
         if es_fp(grado):
             conn.execute("UPDATE oferta SET es_fp = 1 WHERE grado = ?", (grado,))
     conn.commit()
+    crea_vistas(conn)
     return conn
 
 
@@ -243,16 +256,6 @@ def guarda_coords(
         (lat, lng, fuente, precision, codigo),
     )
     conn.commit()
-
-
-def crea_tabla_mapa(conn: sqlite3.Connection, solo_fp: bool = True) -> tuple[int, int]:
-    filtro = "AND o.es_fp = 1" if solo_fp else ""
-    sql = (TABLA_MAPA + TABLA_CENTROS_MAPA).replace("/*FILTRO_FP*/", filtro)
-    conn.executescript(sql)
-    conn.commit()
-    centros = conn.execute("SELECT count(*) FROM mapa").fetchone()[0]
-    ofertas = conn.execute("SELECT count(*) FROM oferta_mapa").fetchone()[0]
-    return centros, ofertas
 
 
 def estadisticas(conn: sqlite3.Connection) -> dict[str, object]:
