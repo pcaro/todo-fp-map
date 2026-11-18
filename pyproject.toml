@@ -17,8 +17,8 @@ todofp = "todofpmap.cli:main"
 
 [dependency-groups]
 dev = [
-    "datasette>=0.65",
-    "datasette-cluster-map>=0.19",
+    "datasette>=1.0a43",
+    "datasette-maplibre>=0.1a0",
     "ruff>=0.14",
 ]
 

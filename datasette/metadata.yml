@@ -1,25 +1,29 @@
-title: Centros de Formación Profesional
+title: Centros de FP en España
 description: >-
-  Centros docentes no universitarios con las enseñanzas que imparten, extraídos
-  del buscador del Ministerio de Educación y geocodificados con el directorio de
-  la Junta de Andalucía y CartoCiudad. Fuente oficial, curso 2024/2025.
+  Centros docentes que imparten Formación Profesional (grado básico, medio y
+  superior, LOE/LOGSE/LFP, y cursos de especialización), con las enseñanzas de
+  cada uno y coordenadas. Datos del buscador de centros del Ministerio de
+  Educación y Formación Profesional, curso 2024/2025.
 databases:
   centros:
     description: >-
-      Solo Formación Profesional: ciclos de grado básico, medio y superior
-      (LOE, LOGSE y LFP) y cursos de especialización. Fuera quedan ESO,
-      Bachillerato, idiomas, música, danza y artes. Empieza por la tabla
-      <a href="mapa">mapa</a>: el mapa aparece justo debajo de las facetas.
-      Para buscar por titulación, usa
-      <a href="oferta_mapa?_facet=ensenanza&_facet_size=8">oferta_mapa</a>.
+      Empieza por <a href="oferta_mapa">oferta_mapa</a>: una fila por centro y
+      titulación, con el mapa arriba. Para ver un punto por centro, usa
+      <a href="mapa">mapa</a>.
     tables:
-      mapa:
-        description: >-
-          Un centro que imparte FP por fila, con coordenadas. Filtra por
-          provincia o naturaleza y el mapa se actualiza. Las coordenadas vienen del
-          directorio de la Junta de Andalucía (precisión oficial) o de
-          CartoCiudad (portal, callejero o centro del municipio).
       oferta_mapa:
         description: >-
-          Una fila por centro y enseñanza de FP impartida, con coordenadas.
-          Filtra por enseñanza o grado para ver qué centros la imparten.
+          Una fila por centro y enseñanza de FP, con coordenadas. Filtra por
+          titulación, provincia o tipo de centro en las facetas.
+      mapa:
+        description: >-
+          Un centro que imparte FP por fila. Filtra por provincia o
+          naturaleza. La columna n_ensenanzas cuenta sus titulaciones de FP.
+      centros:
+        description: >-
+          Datos de contacto de los 35.310 centros del registro (incluye los que
+          no imparten FP).
+      oferta:
+        description: >-
+          Todas las enseñanzas de cada centro (135.336 filas). es_fp = 1 marca
+          las de Formación Profesional.

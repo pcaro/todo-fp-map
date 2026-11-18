@@ -198,8 +198,9 @@ def cmd_lite(args: argparse.Namespace) -> None:
         DROP TABLE IF EXISTS centros;
         DROP INDEX IF EXISTS idx_centros_provincia;
         CREATE TABLE oferta_mapa_slim AS
-            SELECT centro_codigo, denominacion, municipio, provincia, grado, familia,
-                   ensenanza, modalidad, round(lat, 5) AS lat, round(lng, 5) AS lng
+            SELECT centro_codigo, denominacion, ensenanza, grado, familia, modalidad,
+                   provincia, municipio, naturaleza, tipo_centro,
+                   round(lat, 5) AS lat, round(lng, 5) AS lng
             FROM oferta_mapa;
         DROP TABLE oferta_mapa;
         ALTER TABLE oferta_mapa_slim RENAME TO oferta_mapa;
@@ -250,14 +251,14 @@ def cmd_url(args: argparse.Namespace) -> None:
         f"&url={base}/{args.nombre}"
         f"&metadata={base}/metadata.yml"
     )
-    print("Mapa de centros (una fila por centro):")
-    print(f"{comun}#/centros/mapa?_facet=provincia&_facet_size=8%23map=5.3/40.2/-3.7&color=provincia")
-    print()
-    print("Centros por enseñanza (filtra por grado o titulación):")
+    print("Centros por titulación (una fila por centro y enseñanza):")
     print(
-        f"{comun}#/centros/oferta_mapa?_facet=ensenanza&_facet=grado&_facet_size=8"
-        "%23map=5.3/40.2/-3.7&color=grado"
+        f"{comun}#/centros/oferta_mapa?_facet=ensenanza&_facet=provincia&_facet=naturaleza"
+        "&_facet_size=8%23map=5.3/40.2/-3.7&color=ensenanza"
     )
+    print()
+    print("Mapa de centros (un punto por centro):")
+    print(f"{comun}#/centros/mapa?_facet=provincia&_facet_size=8%23map=5.3/40.2/-3.7&color=provincia")
 
 
 # -------------------------------------------------------------------- CLI
