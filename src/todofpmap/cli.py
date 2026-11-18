@@ -251,12 +251,12 @@ def cmd_url(args: argparse.Namespace) -> None:
         f"&metadata={base}/metadata.yml"
     )
     print("Mapa de centros (una fila por centro):")
-    print(f"{comun}#/centros/mapa?_facet=provincia&_facet_size=8%23map=6.6/37.4/-4.7&color=provincia")
+    print(f"{comun}#/centros/mapa?_facet=provincia&_facet_size=8%23map=5.3/40.2/-3.7&color=provincia")
     print()
     print("Centros por enseñanza (filtra por grado o titulación):")
     print(
         f"{comun}#/centros/oferta_mapa?_facet=ensenanza&_facet=grado&_facet_size=8"
-        "%23map=6.6/37.4/-4.7&color=grado"
+        "%23map=5.3/40.2/-3.7&color=grado"
     )
 
 
