@@ -1,0 +1,314 @@
+"""Script del proyecto: descarga, geocodifica y prepara la BD para Datasette."""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import sqlite3
+import sys
+import time
+from pathlib import Path
+
+import httpx
+
+from . import db, fuentes, mefp
+from .geocode import CartoCiudad
+
+UA = "todofp-map/0.1 (github.com/pcaro/todo-fp-map)"
+DB_POR_DEFECTO = Path("centros.sqlite")
+CACHE_ANDALUCIA = Path("data/andalucia_centros_24_25.csv")
+
+
+def _cliente(concurrencia: int = 4) -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        headers={"User-Agent": UA},
+        limits=httpx.Limits(max_connections=concurrencia * 2),
+        follow_redirects=True,
+    )
+
+
+def _consola(texto: str) -> None:
+    print(texto, file=sys.stderr, flush=True)
+
+
+# ---------------------------------------------------------------- fetch
+
+
+async def cmd_fetch(args: argparse.Namespace) -> None:
+    conn = db.conectar(args.db)
+    async with _cliente(args.concurrencia) as client:
+        filtros = {"idComunidad": args.ccaa} if args.ccaa else {}
+        etiqueta = mefp.CCAA.get(args.ccaa or "", "todo el Estado")
+        _consola(f"→ listado de centros ({etiqueta})")
+        filas = await mefp.listado(client, **filtros)
+        _consola(f"  {len(filas)} centros en el listado")
+        db.guarda_listado(conn, filas)
+
+        if args.solo_lista:
+            return
+
+        hechos = {
+            fila[0] for fila in conn.execute("SELECT codigo FROM centros WHERE detalle_ok = 1")
+        }
+        pendientes = [f["codigo"] for f in filas if args.refrescar or f["codigo"] not in hechos]
+        if args.limite:
+            pendientes = pendientes[: args.limite]
+        _consola(f"→ fichas de centro a descargar: {len(pendientes)}")
+        if not pendientes:
+            return
+
+        semaforo = asyncio.Semaphore(args.concurrencia)
+        inicio = time.monotonic()
+        completados = 0
+        errores: list[str] = []
+
+        async def tarea(codigo: str) -> None:
+            nonlocal completados
+            async with semaforo:
+                try:
+                    campos, ofertas = await mefp.detalle(client, codigo)
+                    db.guarda_detalle(conn, codigo, campos, ofertas)
+                except Exception as error:  # noqa: BLE001 - se reporta al final
+                    errores.append(f"{codigo}: {error}")
+                completados += 1
+                if completados % 100 == 0 or completados == len(pendientes):
+                    ritmo = completados / max(time.monotonic() - inicio, 0.001)
+                    _consola(f"  {completados}/{len(pendientes)} fichas ({ritmo:.1f}/s)")
+
+        await asyncio.gather(*(tarea(codigo) for codigo in pendientes))
+        if errores:
+            _consola(f"  {len(errores)} errores; reintenta con el mismo comando")
+            for linea in errores[:10]:
+                _consola(f"    {linea}")
+
+
+# -------------------------------------------------------------- geocode
+
+
+async def cmd_geocode(args: argparse.Namespace) -> None:
+    conn = db.conectar(args.db)
+    if args.rehacer:
+        conn.execute(
+            "UPDATE centros SET lat = NULL, lng = NULL, geo_fuente = NULL, geo_precision = NULL"
+        )
+        conn.commit()
+        _consola("→ coordenadas borradas (--rehacer)")
+    async with _cliente(args.concurrencia) as client:
+        if not args.solo_cartociudad and (args.ccaa in (None, "01")):
+            coords = await fuentes.coords_andalucia(client, args.cache)
+            aplicados = 0
+            for codigo, (lat, lng) in coords.items():
+                if args.limite and aplicados >= args.limite:
+                    break
+                cursor = conn.execute(
+                    "UPDATE centros SET lat = ?, lng = ?, geo_fuente = 'junta-andalucia',"
+                    " geo_precision = 'oficial' WHERE codigo = ? AND lat IS NULL",
+                    (lat, lng, codigo),
+                )
+                aplicados += cursor.rowcount
+            conn.commit()
+            _consola(f"→ coordenadas oficiales de Andalucía aplicadas: {aplicados}")
+
+        consulta = "SELECT codigo, domicilio, localidad, municipio, provincia, cod_postal"
+        consulta += " FROM centros WHERE lat IS NULL"
+        if args.ccaa:
+            consulta += " AND ccaa LIKE ?"
+        # LIKE solo ignora mayúsculas en ASCII: se compara todo en mayúsculas
+        parametros = () if not args.ccaa else (f"%{mefp.CCAA[args.ccaa].upper()}%",)
+        pendientes = conn.execute(consulta + " ORDER BY codigo", parametros).fetchall()
+        if args.limite:
+            pendientes = pendientes[: args.limite]
+        _consola(f"→ centros a geocodificar con CartoCiudad: {len(pendientes)}")
+        if not pendientes:
+            return
+
+        geo = CartoCiudad(client, pausa=args.pausa)
+        semaforo = asyncio.Semaphore(args.concurrencia)
+        inicio = time.monotonic()
+        completados = 0
+        con_coords = 0
+        sin_coords: list[str] = []
+
+        async def tarea(fila: sqlite3.Row) -> None:
+            nonlocal completados, con_coords
+            async with semaforo:
+                resultado = await geo.geocodifica(
+                    fila["domicilio"] or "",
+                    fila["localidad"] or fila["municipio"] or "",
+                    fila["provincia"] or "",
+                    fila["cod_postal"] or "",
+                    provincia_codigo=fila["codigo"][:2],
+                    municipio=fila["municipio"] or "",
+                )
+                if resultado:
+                    lat, lng, precision = resultado
+                    db.guarda_coords(conn, fila["codigo"], lat, lng, "cartociudad", precision)
+                    con_coords += 1
+                else:
+                    sin_coords.append(fila["codigo"])
+                completados += 1
+                if completados % 100 == 0 or completados == len(pendientes):
+                    ritmo = completados / max(time.monotonic() - inicio, 0.001)
+                    _consola(f"  {completados}/{len(pendientes)} ({ritmo:.1f}/s, {con_coords} ok)")
+
+        await asyncio.gather(*(tarea(fila) for fila in pendientes))
+        if sin_coords:
+            _consola(f"  sin coordenadas: {len(sin_coords)} centros")
+
+
+# ---------------------------------------------------------- mapa y stats
+
+
+def cmd_mapa(args: argparse.Namespace) -> None:
+    conn = db.conectar(args.db)
+    total = db.crea_tabla_mapa(conn)
+    _consola(f"→ tabla oferta_mapa regenerada: {total} filas")
+
+
+def cmd_stats(args: argparse.Namespace) -> None:
+    conn = db.conectar(args.db)
+    print(db.estadisticas(conn))
+
+
+def cmd_build(args: argparse.Namespace) -> None:
+    asyncio.run(cmd_fetch(args))
+    asyncio.run(cmd_geocode(args))
+    cmd_mapa(args)
+    cmd_stats(args)
+
+
+# ------------------------------------------------------------------ lite
+
+
+def cmd_lite(args: argparse.Namespace) -> None:
+    """Genera una BD reducida para subir a un gist y abrir en Datasette Lite."""
+    origen = sqlite3.connect(args.db)
+    destino = args.salida
+    if destino.exists():
+        destino.unlink()
+    copia = sqlite3.connect(destino)
+    origen.backup(copia)
+    origen.close()
+
+    copia.executescript(
+        """
+        DROP TABLE IF EXISTS oferta;
+        DROP INDEX IF EXISTS idx_centros_provincia;
+        UPDATE oferta_mapa SET lat = round(lat, 5), lng = round(lng, 5);
+        UPDATE centros SET lat = round(lat, 5), lng = round(lng, 5);
+        DELETE FROM centros WHERE lat IS NULL;
+        VACUUM;
+        """
+    )
+    copia.commit()
+    copia.close()
+    megas = destino.stat().st_size / 1_048_576
+    _consola(f"→ {destino} ({megas:.1f} MB)")
+    if megas > 20:
+        _consola("  aviso: >20 MB, Datasette Lite tardará en cargar; limita con --ccaa")
+
+
+# ------------------------------------------------------------------- url
+
+
+def cmd_url(args: argparse.Namespace) -> None:
+    """Compone la URL de Datasette Lite a partir de la URL del gist."""
+    base = args.gist.rstrip("/")
+    if "gist.github.com" in base:
+        partes = base.split("gist.github.com/", 1)[1].split("/")
+        usuario, ident = partes[0], partes[1]
+        base = f"https://gist.githubusercontent.com/{usuario}/{ident}/raw"
+    elif base.endswith("/raw"):
+        pass
+    elif "/raw/" in base:
+        base = base.split("/raw/")[0] + "/raw"
+    ajustes = ""
+    if args.estable:
+        # Datasette 0.65 no entiende ?s.* y el mapa se queda en 1000 puntos
+        ajustes = "&ref=stable"
+    else:
+        ajustes = (
+            "&s.plugins.datasette-cluster-map.max_limit=40000"
+            "&s.settings.max_returned_rows=40000"
+        )
+    print(
+        "https://lite.datasette.io/?install=datasette-cluster-map"
+        f"{ajustes}"
+        f"&url={base}/{args.nombre}"
+        f"&metadata={base}/metadata.yml"
+        "#/todofp/oferta_mapa?_facet=provincia&_facet=grado&_facet=ensenanza"
+    )
+
+
+# -------------------------------------------------------------------- CLI
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="todofp", description="Centros de FP de España → SQLite → mapa"
+    )
+    parser.add_argument("--db", type=Path, default=DB_POR_DEFECTO, help="ruta de la BD SQLite")
+    sub = parser.add_subparsers(dest="comando", required=True)
+
+    def comun(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--ccaa", default="01", help="código de CCAA (01=Andalucía, vacío=todo)")
+        p.add_argument("--limite", type=int, default=0, help="máximo de centros a procesar")
+        p.add_argument("--concurrencia", type=int, default=4, help="peticiones simultáneas")
+
+    fetch = sub.add_parser("fetch", help="listado de centros + fichas con sus enseñanzas")
+    comun(fetch)
+    fetch.add_argument("--solo-lista", action="store_true", help="no descargar fichas")
+    fetch.add_argument("--refrescar", action="store_true", help="volver a bajar fichas ya hechas")
+    fetch.set_defaults(func=cmd_fetch, asincrono=True)
+
+    geo = sub.add_parser("geocode", help="rellena lat/lng (Andalucía oficial + CartoCiudad)")
+    comun(geo)
+    geo.add_argument("--pausa", type=float, default=0.2, help="segundos entre consultas")
+    geo.add_argument("--solo-cartociudad", action="store_true", help="ignora el CSV de la Junta")
+    geo.add_argument("--rehacer", action="store_true", help="borra las coordenadas actuales")
+    geo.add_argument("--cache", type=Path, default=CACHE_ANDALUCIA)
+    geo.set_defaults(func=cmd_geocode, asincrono=True)
+
+    mapa = sub.add_parser("mapa", help="regenera la tabla oferta_mapa")
+    mapa.set_defaults(func=cmd_mapa, asincrono=False)
+
+    stats = sub.add_parser("stats", help="resumen de la BD")
+    stats.set_defaults(func=cmd_stats, asincrono=False)
+
+    build = sub.add_parser("build", help="fetch + geocode + mapa + stats")
+    comun(build)
+    build.add_argument("--pausa", type=float, default=0.2)
+    build.add_argument("--solo-cartociudad", action="store_true")
+    build.add_argument("--cache", type=Path, default=CACHE_ANDALUCIA)
+    build.add_argument("--solo-lista", action="store_true")
+    build.add_argument("--refrescar", action="store_true")
+    build.add_argument("--rehacer", action="store_true")
+    build.set_defaults(func=cmd_build, asincrono=False)
+
+    lite = sub.add_parser("lite", help="BD reducida para gist + Datasette Lite")
+    lite.add_argument("--salida", type=Path, default=Path("data/todofp.sqlite"))
+    lite.set_defaults(func=cmd_lite, asincrono=False)
+
+    url = sub.add_parser("url", help="imprime la URL de Datasette Lite para un gist")
+    url.add_argument("gist", help="URL del gist (gist.github.com/... o .../raw)")
+    url.add_argument("--nombre", default="todofp.sqlite", help="nombre del fichero en el gist")
+    url.add_argument(
+        "--estable",
+        action="store_true",
+        help="fija Datasette 0.65 (sin los ajustes de 1.0: el mapa corta a 1000 puntos)",
+    )
+    url.set_defaults(func=cmd_url, asincrono=False)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    if getattr(args, "asincrono", False):
+        asyncio.run(args.func(args))
+    else:
+        args.func(args)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

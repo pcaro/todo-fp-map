@@ -1,0 +1,15 @@
+title: Centros de Formación Profesional
+description: >-
+  Centros docentes no universitarios con las enseñanzas que imparten, extraídos
+  del buscador del Ministerio de Educación y geocodificados con el directorio de
+  la Junta de Andalucía y CartoCiudad. Fuente oficial, curso 2024/2025.
+databases:
+  todofp:
+    description: Registro de centros + oferta de enseñanzas por centro.
+    tables:
+      oferta_mapa:
+        description: >-
+          Una fila por centro y enseñanza impartida, con coordenadas.
+          Filtra por provincia, grado o enseñanza en las facetas.
+      centros:
+        description: Datos de contacto y localización de cada centro.

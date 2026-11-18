@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+
+# artefactos: se regeneran con `todofp build`
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

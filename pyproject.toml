@@ -1,0 +1,34 @@
+[project]
+name = "todofp-map"
+version = "0.1.0"
+description = "Centros de FP de España en SQLite: qué imparte cada centro, con dirección y coordenadas"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28",
+    "xlrd>=2.0.2",
+]
+
+[project.scripts]
+todofp = "todofpmap.cli:main"
+
+[dependency-groups]
+dev = [
+    "datasette>=0.65",
+    "datasette-cluster-map>=0.19",
+    "ruff>=0.14",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/todofpmap"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
