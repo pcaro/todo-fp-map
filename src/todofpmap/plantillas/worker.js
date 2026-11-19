@@ -185,17 +185,22 @@ function opGeojson(filtros) {
   };
 }
 
-// Columnas de la ficha: las mismas que expone la vista `mapa` menos
-// n_ensenanzas, que aquí se calcula con la misma expresión que la vista.
+// Columnas de la ficha: las de la vista `mapa` menos n_ensenanzas, que aquí se
+// calcula con la misma expresión que la vista, más los datos de contacto y la
+// denominación genérica que la ficha enseña y la vista no publica.
 const COLUMNAS_FICHA = [
   'codigo',
   'denominacion',
+  'denominacion_generica',
   'municipio',
   'provincia',
   'naturaleza',
+  'concertado',
   'tipo_centro',
   'domicilio',
   'cod_postal',
+  'telefono',
+  'web',
   'lat',
   'lng',
   'geo_precision',

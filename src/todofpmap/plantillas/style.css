@@ -446,6 +446,54 @@ a:hover {
   box-shadow: none;
 }
 
+/* Chip de la titulación activa: lo pinta app.js junto al buscador. */
+.cabecera__activa {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.25rem 0.3rem 0.25rem 0.7rem;
+  background: var(--acento-suave);
+  border: 1px solid #cfe0d4;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--acento-oscuro);
+}
+
+.cabecera__activa-texto {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cabecera__quitar {
+  flex: 0 0 auto;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cabecera__quitar:hover {
+  background: rgb(44 95 75 / 14%);
+}
+
+/* Sugerencias ---------------------------------------------------------------- */
+
+.buscador__vacio {
+  color: var(--tinta-suave);
+  cursor: default;
+}
+
 /* Panel derecho: lista + ficha ---------------------------------------------- */
 
 .lateral {
@@ -514,10 +562,169 @@ a:hover {
   margin-bottom: 0.4rem;
 }
 
-/* Filas del esqueleto de lista que pinta app.js; T7 las sustituye. */
+/* Lista de resultados: una fila por centro, agrupada por municipio. */
+.lista__item {
+  margin: 0;
+}
+
 .lista__fila {
-  padding: 0.2rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.4rem 0.45rem;
+  border: 0;
+  border-radius: var(--radio);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lista__fila:hover {
+  background: var(--acento-suave);
+}
+
+.lista__fila[aria-current="true"] {
+  background: var(--acento-suave);
+  box-shadow: inset 2px 0 var(--acento);
+}
+
+.lista__denominacion {
   font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.lista__meta {
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--tinta-suave);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lista__sin-ubicar {
+  align-self: flex-start;
+  padding: 0 0.35rem;
+  background: #f3e7dd;
+  border-radius: var(--radio);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--aviso);
+}
+
+.lista__grupo {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0.6rem 0 0.15rem;
+  padding: 0.2rem 0.45rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--filete);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--tinta-suave);
+}
+
+.lista__grupo:first-child {
+  margin-top: 0;
+}
+
+/* Ficha --------------------------------------------------------------------- */
+
+.ficha__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ficha__cerrar {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radio);
+  background: transparent;
+  color: var(--tinta-suave);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ficha__cerrar:hover {
+  border-color: var(--filete-fuerte);
+  color: var(--tinta);
+}
+
+.ficha__datos {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.2rem 0.7rem;
+  margin: 0.6rem 0 0;
+  font-size: 0.84rem;
+}
+
+.ficha__datos dt {
+  padding-top: 0.1rem;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.ficha__datos dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ficha__subtitulo {
+  margin: 1rem 0 0.35rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--filete);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.ficha__grado {
+  margin: 0.7rem 0 0.25rem;
+  font-family: var(--serif);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ficha__ensenanzas {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  font-size: 0.84rem;
+}
+
+.ficha__ensenanzas li {
+  margin-bottom: 0.3rem;
+}
+
+.ficha__modalidad {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--tinta-suave);
+}
+
+.ficha__aviso {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: var(--aviso);
 }
 
 .ficha__vacio {
