@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f7f5f0">
+  <title>Centros de FP en España</title>
+  <meta name="description" content="Dónde se estudia cada titulación de Formación Profesional en España: mapa, filtros y ficha de cada centro.">
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%232c5f4b'/%3E%3Ccircle cx='16' cy='13' r='6' fill='%23f7f5f0'/%3E%3Cpath d='M16 30 9.5 20h13z' fill='%23f7f5f0'/%3E%3C/svg%3E">
+
+  <!-- Dependencias por CDN, con SRI calculado sobre el fichero exacto de jsDelivr.
+       maplibre-gl 5.24.1 (última 5.x estable) y sql.js 1.17.0.
+       sql.js carga además sql-wasm.wasm (688280 B) desde la misma ruta del CDN;
+       ese fetch no admite integrity, el worker lo resolverá con locateFile. -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.1/dist/maplibre-gl.css"
+        integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK"
+        crossorigin="anonymous">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="salto" href="#mapa">Saltar al mapa</a>
+
+  <div class="app">
+    <header class="cabecera">
+      <div class="cabecera__marca">
+        <h1 class="cabecera__titulo">Centros de FP en España</h1>
+        <p class="cabecera__nota">Datos del curso 2024/2025</p>
+      </div>
+
+      <form class="buscador" role="search" action="" method="get" autocomplete="off">
+        <label class="visualmente-oculto" for="buscador">Buscar titulación</label>
+        <input id="buscador" class="buscador__campo" type="search" name="q" role="combobox"
+               placeholder="Buscar titulación…" spellcheck="false"
+               aria-autocomplete="list" aria-controls="sugerencias" aria-expanded="false">
+        <ul id="sugerencias" class="buscador__sugerencias" role="listbox"
+            aria-label="Titulaciones sugeridas" hidden></ul>
+      </form>
+
+      <!-- T9: rellena el href con la URL de Datasette Lite. -->
+      <a id="btn-sql" class="boton boton--contorno" href="" target="_blank" rel="noopener noreferrer"
+         title="Consultar la base de datos completa en Datasette Lite">Explorar con SQL</a>
+    </header>
+
+    <aside id="facetas" class="facetas" aria-label="Filtros">
+      <input type="checkbox" id="facetas-abiertas" class="facetas__control visualmente-oculto"
+             aria-controls="facetas-cuerpo">
+      <label class="facetas__resumen" for="facetas-abiertas">Filtros</label>
+      <!-- Todas las facetas son el mismo desplegable de selección múltiple:
+           recogido ocupan una línea con el resumen de lo marcado ("Todos" = nada
+           marcado = la db entera), desplegado la lista de checkboxes con sus
+           conteos. Naturaleza, la menos habitual, viene desplegada por defecto. -->
+      <div id="facetas-cuerpo" class="facetas__cuerpo">
+        <section class="faceta faceta--desplegable" data-desplegable="naturaleza">
+          <button type="button" id="naturaleza-boton" class="desplegable__boton"
+                  aria-expanded="true" aria-controls="naturaleza-panel">
+            <span class="faceta__titulo faceta__titulo--desplegable">Naturaleza</span>
+            <span id="naturaleza-valor" class="desplegable__valor">Todos</span>
+            <span class="desplegable__flecha" aria-hidden="true">▾</span>
+          </button>
+          <div id="naturaleza-panel" class="desplegable__panel">
+            <ul class="faceta__opciones desplegable__opciones" data-faceta="naturaleza">
+              <li class="faceta__vacio">Cargando…</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="faceta faceta--desplegable" data-desplegable="grado">
+          <button type="button" id="grado-boton" class="desplegable__boton"
+                  aria-expanded="false" aria-controls="grado-panel">
+            <span class="faceta__titulo faceta__titulo--desplegable">Grado</span>
+            <span id="grado-valor" class="desplegable__valor">Todos</span>
+            <span class="desplegable__flecha" aria-hidden="true">▾</span>
+          </button>
+          <div id="grado-panel" class="desplegable__panel" hidden>
+            <ul class="faceta__opciones desplegable__opciones" data-faceta="grado">
+              <li class="faceta__vacio">Cargando…</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="faceta faceta--desplegable" data-desplegable="modalidad">
+          <button type="button" id="modalidad-boton" class="desplegable__boton"
+                  aria-expanded="false" aria-controls="modalidad-panel">
+            <span class="faceta__titulo faceta__titulo--desplegable">Modalidad</span>
+            <span id="modalidad-valor" class="desplegable__valor">Todos</span>
+            <span class="desplegable__flecha" aria-hidden="true">▾</span>
+          </button>
+          <div id="modalidad-panel" class="desplegable__panel" hidden>
+            <ul class="faceta__opciones desplegable__opciones" data-faceta="modalidad">
+              <li class="faceta__vacio">Cargando…</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="faceta faceta--desplegable" data-desplegable="familia">
+          <button type="button" id="familia-boton" class="desplegable__boton"
+                  aria-expanded="false" aria-controls="familia-panel">
+            <span class="faceta__titulo faceta__titulo--desplegable">Familia</span>
+            <span id="familia-valor" class="desplegable__valor">Todos</span>
+            <span class="desplegable__flecha" aria-hidden="true">▾</span>
+          </button>
+          <div id="familia-panel" class="desplegable__panel" hidden>
+            <ul class="faceta__opciones desplegable__opciones" data-faceta="familia">
+              <li class="faceta__vacio">Cargando…</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="faceta faceta--desplegable" data-desplegable="provincia">
+          <button type="button" id="provincia-boton" class="desplegable__boton"
+                  aria-expanded="false" aria-controls="provincia-panel">
+            <span class="faceta__titulo faceta__titulo--desplegable">Provincia</span>
+            <span id="provincia-valor" class="desplegable__valor">Todos</span>
+            <span class="desplegable__flecha" aria-hidden="true">▾</span>
+          </button>
+          <div id="provincia-panel" class="desplegable__panel" hidden>
+            <ul class="faceta__opciones desplegable__opciones" data-faceta="provincia">
+              <li class="faceta__vacio">Cargando…</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+
+      <footer class="facetas__pie">
+        <p>Fuente: registro oficial del Ministerio de Educación, Formación Profesional y Deportes.</p>
+        <p><a href="https://github.com/pcaro/todo-fp-map">Código y datos</a></p>
+      </footer>
+    </aside>
+
+    <main class="principal">
+      <div id="mapa" class="mapa" role="region" aria-label="Mapa de centros de FP" tabindex="-1"></div>
+      <p id="estado-mapa" class="mapa__estado">Cargando base de datos…</p>
+      <noscript>
+        <p class="aviso">Esta web necesita JavaScript para cargar el mapa y consultar los datos.</p>
+      </noscript>
+    </main>
+
+    <aside class="lateral" aria-label="Resultados">
+      <section id="lista" class="lista" aria-labelledby="lista-titulo">
+        <header class="lista__cabecera">
+          <div class="lista__fila-titulo">
+            <h2 id="lista-titulo" class="lista__titulo">Centros</h2>
+            <label class="lista__vista" for="solo-mapa"
+                   title="Limita la lista a los centros dentro del encuadre del mapa">
+              <input type="checkbox" id="solo-mapa" checked>
+              <span>Área del mapa</span>
+            </label>
+          </div>
+          <p id="lista-cuenta" class="lista__cuenta" aria-live="polite">Cargando base de datos…</p>
+        </header>
+        <ul class="lista__resultados">
+          <li class="lista__vacio">Cargando…</li>
+        </ul>
+      </section>
+
+      <!-- La ficha flota sobre la lista cuando se abre (position: absolute en
+           style.css); arranca oculta y vacía: su contenido lo pinta app.js. -->
+      <section id="ficha" class="ficha" hidden aria-labelledby="ficha-titulo"></section>
+    </aside>
+  </div>
+
+  <!-- app.js crea worker.js como Web Worker clásico (sin options: sql.js se
+       carga ahí con importScripts). -->
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.1/dist/maplibre-gl.js"
+          integrity="sha384-nXMl9YiLoSG5KBPTFgvxVuIqQQcqIvo0bFrvoEaGJC6r7IibIzF1S36Zbf/sKBtL"
+          crossorigin="anonymous" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/sql.js@1.17.0/dist/sql-wasm.js"
+          integrity="sha384-o9sSRwR4Uvda2Zu4YdRBgsSybZmTPOsq8vagmU5DPs+UOjuqhOnaUwUfH0sTimHM"
+          crossorigin="anonymous" defer></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

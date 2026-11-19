@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import gzip
+import shutil
 import sqlite3
 import sys
 import time
@@ -17,6 +19,9 @@ from .geocode import CartoCiudad
 UA = "todofp-map/0.1 (github.com/pcaro/todo-fp-map)"
 DB_POR_DEFECTO = Path("centros.sqlite")
 CACHE_ANDALUCIA = Path("data/andalucia_centros_24_25.csv")
+# salida de `lite`: la BD reducida (solo FP) que consume la web estática
+DB_REDUCIDA = Path("data/centros.sqlite")
+PLANTILLAS = Path(__file__).parent / "plantillas"
 
 
 def _cliente(concurrencia: int = 4) -> httpx.AsyncClient:
@@ -29,6 +34,11 @@ def _cliente(concurrencia: int = 4) -> httpx.AsyncClient:
 
 def _consola(texto: str) -> None:
     print(texto, file=sys.stderr, flush=True)
+
+
+def _miles(n: int) -> str:
+    """4.646 al estilo español."""
+    return f"{n:,}".replace(",", ".")
 
 
 # ---------------------------------------------------------------- fetch
@@ -230,6 +240,50 @@ def cmd_lite(args: argparse.Namespace) -> None:
         _consola("  aviso: >20 MB, Datasette Lite tardará en cargar; limita con --ccaa")
 
 
+# ------------------------------------------------------------------- web
+
+
+def cmd_web(args: argparse.Namespace) -> None:
+    """Copia la web estática a docs/ y comprime la BD reducida para GitHub Pages."""
+    if not DB_REDUCIDA.exists():
+        # el resto de subcomandos no sale con error, pero publicar sin datos deja
+        # docs/ a medias: aquí conviene cortar con un código != 0
+        sys.exit(f"error: no existe {DB_REDUCIDA}; genérala con `uv run todofp lite`")
+
+    conn = sqlite3.connect(DB_REDUCIDA)
+    centros, filas = conn.execute(
+        "SELECT count(*), (SELECT count(*) FROM oferta_mapa) FROM mapa"
+    ).fetchone()
+    conn.close()
+    if not centros:
+        sys.exit(f"error: {DB_REDUCIDA} no tiene centros de FP; revisa `uv run todofp lite`")
+
+    destino = args.destino
+    destino.mkdir(parents=True, exist_ok=True)
+    plantillas = sorted(p for p in PLANTILLAS.iterdir() if p.is_file())
+    for plantilla in plantillas:
+        _consola(f"→ plantilla {plantilla.name}")
+        shutil.copyfile(plantilla, destino / plantilla.name)
+
+    gz = destino / "centros.sqlite.gz"
+    _consola(f"→ comprimiendo {DB_REDUCIDA} → {gz}")
+    # mtime fijo: mismo contenido -> mismo blob. Si el .gz cambiara de hash en
+    # cada `todofp web`, cada commit de datos arrastraria un binario "nuevo" de
+    # 1 MB por el histórico del repo aunque la base no hubiera cambiado.
+    with (
+        DB_REDUCIDA.open("rb") as origen,
+        gzip.GzipFile(filename="", mode="wb", fileobj=gz.open("wb"), mtime=0) as comprimido,
+    ):
+        shutil.copyfileobj(origen, comprimido)
+
+    megas = DB_REDUCIDA.stat().st_size / 1_048_576
+    megas_gz = gz.stat().st_size / 1_048_576
+    print(
+        f"{destino}/ listo: {_miles(centros)} centros, {_miles(filas)} filas,"
+        f" {megas:.1f} MB → {megas_gz:.2f} MB ({gz})"
+    )
+
+
 # ------------------------------------------------------------------- url
 
 
@@ -272,7 +326,9 @@ def cmd_url(args: argparse.Namespace) -> None:
     )
     print()
     print("Mapa de centros (un punto por centro):")
-    print(f"{comun}#/centros/mapa?_facet=provincia&_facet_size=8%23map=5.3/40.2/-3.7&color=provincia")
+    print(
+        f"{comun}#/centros/mapa?_facet=provincia&_facet_size=8%23map=5.3/40.2/-3.7&color=provincia"
+    )
 
 
 # -------------------------------------------------------------------- CLI
@@ -323,8 +379,12 @@ def _parser() -> argparse.ArgumentParser:
     build.set_defaults(func=cmd_build, asincrono=False)
 
     lite = sub.add_parser("lite", help="BD reducida para gist + Datasette Lite")
-    lite.add_argument("--salida", type=Path, default=Path("data/centros.sqlite"))
+    lite.add_argument("--salida", type=Path, default=DB_REDUCIDA)
     lite.set_defaults(func=cmd_lite, asincrono=False)
+
+    web = sub.add_parser("web", help="genera docs/ (plantillas + BD comprimida) para GitHub Pages")
+    web.add_argument("--destino", type=Path, default=Path("docs"))
+    web.set_defaults(func=cmd_web, asincrono=False)
 
     url = sub.add_parser("url", help="imprime la URL de Datasette Lite para un gist")
     url.add_argument("gist", help="URL del gist (gist.github.com/... o .../raw)")

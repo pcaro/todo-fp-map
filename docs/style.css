@@ -1,0 +1,1072 @@
+/* Shell de la web estática de centros de FP.
+   Estética de herramienta pública: papel cálido, tinta oscura y un único acento
+   verde. Serif para títulos, sans para la interfaz y mono para etiquetas y cifras. */
+
+:root {
+  --papel: #f6f4ee;
+  --panel: #fffefb;
+  --tinta: #1b201c;
+  --tinta-suave: #6c716a;
+  --filete: #e2ddd2;
+  --filete-fuerte: #c4bdad;
+  --acento: #2c5f4b;
+  --acento-oscuro: #234d3d;
+  --acento-suave: #e8efe9;
+  --aviso: #8d3f22;
+  --sans: "Avenir Next", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --radio: 2px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font: 15px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--acento);
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  color: var(--acento-oscuro);
+}
+
+:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--acento-suave);
+}
+
+/* Utilidades ---------------------------------------------------------------- */
+
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.salto {
+  position: absolute;
+  top: -3rem;
+  left: 1rem;
+  z-index: 100;
+  padding: 0.5rem 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--acento);
+  color: var(--acento);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.salto:focus {
+  top: 0.5rem;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Estructura ---------------------------------------------------------------- */
+
+.app {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 360px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "cabecera cabecera cabecera"
+    "facetas mapa lateral";
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* Cabecera ------------------------------------------------------------------ */
+
+.cabecera {
+  grid-area: cabecera;
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 0.8rem 1.25rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--filete-fuerte);
+}
+
+.cabecera__marca {
+  flex: 0 0 auto;
+}
+
+.cabecera__titulo {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.cabecera__nota {
+  margin: 0.15rem 0 0;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+/* Buscador ------------------------------------------------------------------ */
+
+.buscador {
+  position: relative;
+  flex: 1 1 20rem;
+  max-width: 34rem;
+  display: flex;
+}
+
+.buscador__campo {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  background: #fff;
+  border: 1px solid var(--filete-fuerte);
+  border-radius: var(--radio);
+  color: inherit;
+  font: inherit;
+}
+
+.buscador__campo::placeholder {
+  color: var(--tinta-suave);
+}
+
+.buscador__campo:focus {
+  border-color: var(--acento);
+  outline: 2px solid var(--acento);
+  outline-offset: 1px;
+}
+
+.buscador__sugerencias {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 50;
+  max-height: 18rem;
+  margin: 0;
+  padding: 0.25rem 0;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--filete-fuerte);
+  border-radius: var(--radio);
+  scrollbar-width: thin;
+  scrollbar-color: var(--filete-fuerte) transparent;
+}
+
+.buscador__sugerencias > * {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.buscador__sugerencias > :hover,
+.buscador__sugerencias > [aria-selected="true"] {
+  background: var(--acento-suave);
+}
+
+.buscador__sugerencias:empty {
+  display: none;
+}
+
+/* Botón --------------------------------------------------------------------- */
+
+.boton {
+  flex: 0 0 auto;
+  display: inline-block;
+  margin-left: auto;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid var(--acento);
+  border-radius: var(--radio);
+  background: var(--acento);
+  color: #fff;
+  font: 500 0.85rem/1.2 var(--sans);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.boton:hover {
+  background: var(--acento-oscuro);
+  color: #fff;
+}
+
+.boton--contorno {
+  background: transparent;
+  color: var(--acento);
+}
+
+.boton--contorno:hover {
+  background: var(--acento-suave);
+  color: var(--acento-oscuro);
+}
+
+/* Facetas ------------------------------------------------------------------- */
+
+.facetas {
+  grid-area: facetas;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.75rem 0 1rem;
+  background: var(--panel);
+  border-right: 1px solid var(--filete);
+  scrollbar-width: thin;
+  scrollbar-color: var(--filete-fuerte) transparent;
+}
+
+.facetas__resumen {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 1rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  cursor: pointer;
+}
+
+.facetas__resumen::before {
+  content: "▸";
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+.facetas__control:checked + .facetas__resumen::before {
+  transform: rotate(90deg);
+}
+
+.facetas__control:focus-visible + .facetas__resumen {
+  outline: 2px solid var(--acento);
+  outline-offset: -2px;
+}
+
+/* Plegado solo en pantallas estrechas; en escritorio el control desaparece. */
+.facetas__cuerpo {
+  display: none;
+  flex-direction: column;
+}
+
+.facetas__control:checked ~ .facetas__cuerpo {
+  display: flex;
+}
+
+.faceta {
+  padding: 0.75rem 1rem 1rem;
+}
+
+.faceta + .faceta {
+  border-top: 1px solid var(--filete);
+}
+
+.faceta__titulo {
+  margin: 0 0 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.faceta__opciones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.faceta__vacio,
+.lista__vacio {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+}
+
+/* Opciones de faceta: las pinta app.js con su checkbox y su conteo. */
+.faceta__opcion {
+  margin: 0;
+}
+
+.faceta__etiqueta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.1rem 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.faceta__etiqueta:hover .faceta__valor {
+  color: var(--acento);
+}
+
+.faceta__etiqueta input {
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--acento);
+}
+
+.faceta__etiqueta input:checked ~ .faceta__valor {
+  font-weight: 600;
+}
+
+.faceta__valor {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.faceta__cuenta {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--tinta-suave);
+}
+
+.facetas__pie {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem 0;
+  border-top: 1px solid var(--filete);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--tinta-suave);
+}
+
+.facetas__pie p {
+  margin: 0 0 0.35rem;
+}
+
+/* En pantallas anchas las facetas están siempre desplegadas: el control de
+   plegado solo tiene sentido cuando la columna pasa a ocupar el ancho completo. */
+@media (min-width: 901px) {
+  .facetas__resumen,
+  .facetas__control {
+    display: none;
+  }
+
+  .facetas__cuerpo {
+    display: flex;
+  }
+}
+
+/* Mapa ---------------------------------------------------------------------- */
+
+.principal {
+  grid-area: mapa;
+  position: relative;
+  min-height: 0;
+  background: #e9e6de;
+}
+
+.mapa {
+  position: absolute;
+  inset: 0;
+}
+
+.mapa__estado {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  max-width: min(32rem, 80%);
+  margin: 0;
+  padding: 0.5rem 0.85rem;
+  transform: translate(-50%, -50%);
+  background: var(--panel);
+  border: 1px solid var(--filete-fuerte);
+  border-radius: var(--radio);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--tinta-suave);
+  pointer-events: none;
+}
+
+.mapa__estado--error {
+  border-color: var(--aviso);
+  color: var(--aviso);
+}
+
+.aviso {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 3;
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--aviso);
+  border-left-width: 4px;
+  color: var(--aviso);
+  font-size: 0.88rem;
+}
+
+.maplibregl-ctrl-group {
+  border: 1px solid var(--filete-fuerte);
+  border-radius: var(--radio);
+  box-shadow: none;
+}
+
+/* Popup del mapa: el contenido lo construye app.js con nodos, así que aquí solo
+   va la caja, la tipografía del shell y el botón de la ficha. */
+.maplibregl-popup-content {
+  padding: 0.6rem 0.75rem 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--filete-fuerte);
+  border-radius: var(--radio);
+  box-shadow: 0 3px 10px rgb(27 32 28 / 12%);
+  font-family: var(--sans);
+}
+
+.maplibregl-popup-close-button {
+  top: 0.2rem;
+  right: 0.2rem;
+  width: 1.3rem;
+  height: 1.3rem;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--tinta-suave);
+  font: 1rem/1 var(--sans);
+}
+
+.maplibregl-popup-close-button:hover {
+  background: var(--acento-suave);
+  color: var(--acento-oscuro);
+}
+
+.popup {
+  display: grid;
+  gap: 0.2rem;
+  /* Hueco para la ✕ del popup, que flota en la esquina. */
+  padding-right: 0.9rem;
+}
+
+.popup p {
+  margin: 0;
+}
+
+.popup__denominacion {
+  font-weight: 600;
+  font-size: 0.86rem;
+  line-height: 1.3;
+}
+
+.popup__municipio {
+  font-size: 0.76rem;
+  color: var(--tinta-suave);
+}
+
+/* Identidad: punto del color del marcador + naturaleza y tipo. */
+.popup__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  color: var(--tinta);
+}
+
+.popup__punto {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--papel);
+  flex: none;
+}
+
+.popup__ensenanza {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--acento-oscuro);
+}
+
+.popup__ficha {
+  justify-self: start;
+  margin-top: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--acento);
+  border-radius: var(--radio);
+  background: transparent;
+  color: var(--acento);
+  font: 500 0.76rem/1.2 var(--sans);
+  cursor: pointer;
+}
+
+.popup__ficha:hover {
+  background: var(--acento-suave);
+  color: var(--acento-oscuro);
+}
+
+/* Chip de la titulación activa: lo pinta app.js junto al buscador. */
+.cabecera__activa {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.25rem 0.3rem 0.25rem 0.7rem;
+  background: var(--acento-suave);
+  border: 1px solid #cfe0d4;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--acento-oscuro);
+}
+
+.cabecera__activa-texto {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cabecera__quitar {
+  flex: 0 0 auto;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cabecera__quitar:hover {
+  background: rgb(44 95 75 / 14%);
+}
+
+/* Sugerencias ---------------------------------------------------------------- */
+
+.buscador__vacio {
+  color: var(--tinta-suave);
+  cursor: default;
+}
+
+/* Desplegable de selección múltiple (Grado) --------------------------------- */
+
+.faceta--desplegable {
+  border-bottom: 1px solid var(--filete);
+}
+
+.desplegable__boton {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.desplegable__boton:hover {
+  background: var(--papel);
+}
+
+.faceta__titulo--desplegable {
+  margin: 0;
+}
+
+.desplegable__valor {
+  flex: 1 1 auto;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--tinta-suave);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desplegable__flecha {
+  font-size: 0.7rem;
+  color: var(--tinta-suave);
+  transition: transform 0.15s ease;
+}
+
+.desplegable__boton[aria-expanded='true'] .desplegable__flecha {
+  transform: rotate(180deg);
+}
+
+.desplegable__panel {
+  border-top: 1px solid var(--filete);
+}
+
+.desplegable__opciones {
+  max-height: 40vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--filete-fuerte) transparent;
+}
+
+/* Leyenda del mapa --------------------------------------------------------- */
+
+.leyenda {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 2rem;
+  z-index: 5;
+  padding: 0.5rem 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--filete);
+  border-radius: var(--radio);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.leyenda__entrada {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--tinta);
+}
+
+.leyenda__entrada + .leyenda__entrada {
+  margin-top: 0.15rem;
+}
+
+.leyenda__muestra {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--papel);
+}
+
+/* Panel derecho: lista + ficha ---------------------------------------------- */
+
+.lateral {
+  grid-area: lateral;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 0;
+  background: var(--panel);
+  border-left: 1px solid var(--filete);
+}
+
+.lista {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lista__cabecera {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.8rem 1rem 0.6rem;
+  border-bottom: 1px solid var(--filete);
+}
+
+.lista__fila-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lista__titulo,
+.ficha__titulo {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.lista__cuenta {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--tinta-suave);
+}
+
+/* Interruptor "Área del mapa": limita la lista al encuadre. Es un switch de
+   verdad (píldora con perilla), no un checkbox pelado. */
+.lista__vista {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--filete-fuerte);
+  border-radius: 999px;
+  background: var(--papel);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--tinta);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.lista__vista input {
+  appearance: none;
+  position: relative;
+  width: 1.7rem;
+  height: 0.95rem;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--filete-fuerte);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.lista__vista input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--papel);
+  transition: transform 0.15s ease;
+}
+
+.lista__vista input:checked {
+  background: var(--acento);
+}
+
+.lista__vista input:checked::after {
+  transform: translateX(0.75rem);
+}
+
+.lista__vista input:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+}
+
+.lista__resultados {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--filete-fuerte) transparent;
+}
+
+/* La ficha tapa la lista entera mientras está abierta, en vez de repartir la
+   columna en dos mitades: ver el centro seleccionado no puede exigir scroll. */
+.ficha {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  padding: 0.9rem 1rem 1.1rem;
+  overflow-y: auto;
+  background: var(--papel);
+  box-shadow: 0 0 14px rgba(0, 0, 0, 0.12);
+  scrollbar-width: thin;
+  scrollbar-color: var(--filete-fuerte) transparent;
+}
+
+.ficha__titulo {
+  margin-bottom: 0.4rem;
+}
+
+/* Lista de resultados: una fila por centro, agrupada por municipio. */
+.lista__item {
+  margin: 0;
+}
+
+.lista__fila {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.4rem 0.45rem;
+  border: 0;
+  border-radius: var(--radio);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lista__fila:hover {
+  background: var(--acento-suave);
+}
+
+.lista__fila[aria-current="true"] {
+  background: var(--acento-suave);
+  box-shadow: inset 2px 0 var(--acento);
+}
+
+.lista__denominacion {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.lista__meta {
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--tinta-suave);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lista__sin-ubicar {
+  align-self: flex-start;
+  padding: 0 0.35rem;
+  background: #f3e7dd;
+  border-radius: var(--radio);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--aviso);
+}
+
+.lista__grupo {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0.6rem 0 0.15rem;
+  padding: 0.2rem 0.45rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--filete);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--tinta-suave);
+}
+
+.lista__grupo:first-child {
+  margin-top: 0;
+}
+
+/* Ficha --------------------------------------------------------------------- */
+
+.ficha__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ficha__cerrar {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radio);
+  background: transparent;
+  color: var(--tinta-suave);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ficha__cerrar:hover {
+  border-color: var(--filete-fuerte);
+  color: var(--tinta);
+}
+
+.ficha__datos {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.2rem 0.7rem;
+  margin: 0.6rem 0 0;
+  font-size: 0.84rem;
+}
+
+.ficha__datos dt {
+  padding-top: 0.1rem;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.ficha__datos dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ficha__subtitulo {
+  margin: 1rem 0 0.35rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--filete);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+}
+
+.ficha__grado {
+  margin: 0.7rem 0 0.25rem;
+  font-family: var(--serif);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ficha__ensenanzas {
+  margin: 0;
+  padding: 0 0 0 1rem;
+  font-size: 0.84rem;
+}
+
+.ficha__ensenanzas li {
+  margin-bottom: 0.3rem;
+}
+
+.ficha__modalidad {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--tinta-suave);
+}
+
+.ficha__aviso {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: var(--aviso);
+}
+
+.ficha__vacio {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 0.85rem;
+  color: var(--tinta-suave);
+}
+
+/* Responsive ---------------------------------------------------------------- */
+
+@media (max-width: 1150px) {
+  .app {
+    grid-template-columns: 250px minmax(0, 1fr) 320px;
+  }
+
+  .cabecera {
+    gap: 1.25rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(320px, 55vh) auto;
+    grid-template-areas:
+      "cabecera"
+      "facetas"
+      "mapa"
+      "lateral";
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .cabecera {
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    padding: 0.8rem 1rem;
+  }
+
+  .buscador {
+    flex: 1 1 14rem;
+    max-width: none;
+  }
+
+  .facetas {
+    max-height: none;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid var(--filete-fuerte);
+  }
+
+  .facetas__resumen {
+    padding: 0.6rem 1rem;
+  }
+
+  .facetas__pie {
+    display: none;
+  }
+
+  .principal {
+    min-height: 320px;
+  }
+
+  .lateral {
+    min-height: 70vh;
+    border-top: 1px solid var(--filete-fuerte);
+    border-left: 0;
+  }
+
+  .lista__resultados {
+    max-height: 55vh;
+  }
+}
+
+@media (max-width: 620px) {
+  .cabecera__marca {
+    flex: 1 1 100%;
+  }
+
+  .cabecera__nota {
+    display: none;
+  }
+
+  .boton {
+    margin-left: 0;
+  }
+
+  .lateral {
+    min-height: 0;
+  }
+
+  .lista {
+    border-right: 0;
+    border-bottom: 1px solid var(--filete-fuerte);
+  }
+}

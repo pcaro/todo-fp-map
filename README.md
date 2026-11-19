@@ -4,17 +4,41 @@ Qué centros imparten qué en España, en una base SQLite con dirección y
 coordenadas: **4.646 centros de Formación Profesional y 292 titulaciones
 distintas**, sacados del registro oficial del Ministerio de Educación.
 
-## Mapa
+## La web
 
-Datos del curso 2024/2025. No hay que instalar nada: Datasette corre en el
-navegador y la base de datos (7,3 MB) se descarga desde un gist.
+**[https://pcaro.github.io/todo-fp-map/](https://pcaro.github.io/todo-fp-map/)**
+
+[![Mapa de los centros de FP en España](docs/mapa.png)](https://pcaro.github.io/todo-fp-map/)
+
+Datos del curso 2024/2025. Sin instalación y sin backend: es una página
+estática en GitHub Pages. El navegador baja la base de datos comprimida
+(1,02 MB gzip), la abre con SQLite compilado a WebAssembly (sql.js) dentro de
+un Web Worker y todo el filtrado y las facetas corren en local, contra las
+mismas vistas SQL que usa Datasette. Carga en frío en un segundo; cualquier
+vista es un enlace compartible porque el estado (titulación, facetas y
+encuadre) vive en la URL.
+
+- **Buscador de titulación** con typeahead sobre las 292, y facetas con
+  conteos (grado, familia, provincia, naturaleza, modalidad) que recalculan
+  mapa y lista al momento.
+- **Mapa** MapLibre con OpenFreeMap: clusters con conteo, popup con los datos
+  del centro y ficha completa (dirección, teléfono, web, enseñanzas por
+  grado).
+- **Lista** sincronizada con los filtros, y **Explorar con SQL**: la misma db
+  en Datasette Lite con los filtros activos ya puestos, para quien quiera
+  consultas libres.
+
+## Modo exploración con SQL: Datasette Lite
+
+Datasette entero corriendo en el navegador (Pyodide), con la misma base de
+datos servida desde un gist. Tarda más en arrancar que la web (~15 s de
+Pyodide), pero a cambio tienes SQL libre, exportar filas y el resto de
+Datasette.
 
 | Vista | Qué muestra | Abrir |
 |---|---|---|
 | **Por titulación** | 35.442 filas: un centro y una titulación de FP por fila. Es la vista para responder *"¿dónde se estudia X?"* | **[Abrir el mapa →](https://lite.datasette.io/?install=datasette-maplibre&s.settings.max_returned_rows=40000&s.plugins.datasette-maplibre.container=div.metadata-description&url=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/centros.sqlite&metadata=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/metadata.yml#/centros/oferta_mapa?_facet=ensenanza&_facet=provincia&_facet=naturaleza&_facet_size=8%23map=4.9/40.3/-3.6&color=ensenanza)** |
 | **Por centro** | 4.646 puntos, un centro por fila, con `n_ensenanzas` (cuántas titulaciones de FP imparte) | **[Abrir el mapa →](https://lite.datasette.io/?install=datasette-maplibre&s.settings.max_returned_rows=40000&s.plugins.datasette-maplibre.container=div.metadata-description&url=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/centros.sqlite&metadata=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/metadata.yml#/centros/mapa?_facet=provincia&_facet_size=8%23map=4.9/40.3/-3.6&color=provincia)** |
-
-[![Mapa de los centros de FP en España](docs/mapa.png)](https://lite.datasette.io/?install=datasette-maplibre&s.settings.max_returned_rows=40000&s.plugins.datasette-maplibre.container=div.metadata-description&url=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/centros.sqlite&metadata=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/metadata.yml#/centros/oferta_mapa?_facet=ensenanza&_facet=provincia&_facet=naturaleza&_facet_size=8%23map=4.9/40.3/-3.6&color=ensenanza)
 
 ## Cómo usarlo
 
@@ -184,6 +208,19 @@ Los `?s.*` solo funcionan en Datasette 1.0a8+, por eso **no** se pone
 `--estable` la variante 0.65, que se queda en 1.000 puntos).
 
 ## Publicar una versión nueva
+
+### La web (GitHub Pages)
+
+```bash
+uv run todofp web    # docs/: plantillas + centros.sqlite.gz (1,02 MB)
+git add docs && git commit -m "datos: versión nueva de la web" && git push
+```
+
+Pages sirve la carpeta `docs/` del repo (configuración única en Settings →
+Pages → *Deploy from a branch* → `main`, carpeta `/docs`). El .gz de la db
+se commitea al repo: ~1 MB por versión, y el histórico de gists no crece.
+
+### El gist de Datasette Lite
 
 ```bash
 uv run todofp lite    # data/centros.sqlite: 7,3 MB (recorta filas, no esquema)
