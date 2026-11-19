@@ -680,11 +680,17 @@ a:hover {
 
 .lista__cabecera {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.8rem 1rem 0.6rem;
+  border-bottom: 1px solid var(--filete);
+}
+
+.lista__fila-titulo {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.8rem 1rem;
-  border-bottom: 1px solid var(--filete);
 }
 
 .lista__titulo,
@@ -702,23 +708,59 @@ a:hover {
   color: var(--tinta-suave);
 }
 
-/* Interruptor "En el mapa": limita la lista al encuadre. */
+/* Interruptor "Área del mapa": limita la lista al encuadre. Es un switch de
+   verdad (píldora con perilla), no un checkbox pelado. */
 .lista__vista {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  margin: 0;
+  gap: 0.4rem;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--filete-fuerte);
+  border-radius: 999px;
+  background: var(--papel);
   font-family: var(--mono);
-  font-size: 0.7rem;
-  color: var(--tinta-suave);
+  font-size: 0.68rem;
+  color: var(--tinta);
   cursor: pointer;
   white-space: nowrap;
+  user-select: none;
 }
 
 .lista__vista input {
+  appearance: none;
+  position: relative;
+  width: 1.7rem;
+  height: 0.95rem;
   margin: 0;
-  accent-color: var(--acento);
+  border-radius: 999px;
+  background: var(--filete-fuerte);
   cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.lista__vista input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: var(--papel);
+  transition: transform 0.15s ease;
+}
+
+.lista__vista input:checked {
+  background: var(--acento);
+}
+
+.lista__vista input:checked::after {
+  transform: translateX(0.75rem);
+}
+
+.lista__vista input:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
 }
 
 .lista__resultados {

@@ -141,12 +141,14 @@
     <aside class="lateral" aria-label="Resultados">
       <section id="lista" class="lista" aria-labelledby="lista-titulo">
         <header class="lista__cabecera">
-          <h2 id="lista-titulo" class="lista__titulo">Centros</h2>
-          <label class="lista__vista" for="solo-mapa"
-                 title="Limita la lista a los centros dentro del encuadre del mapa">
-            <input type="checkbox" id="solo-mapa" checked>
-            <span>En el mapa</span>
-          </label>
+          <div class="lista__fila-titulo">
+            <h2 id="lista-titulo" class="lista__titulo">Centros</h2>
+            <label class="lista__vista" for="solo-mapa"
+                   title="Limita la lista a los centros dentro del encuadre del mapa">
+              <input type="checkbox" id="solo-mapa" checked>
+              <span>Área del mapa</span>
+            </label>
+          </div>
           <p id="lista-cuenta" class="lista__cuenta" aria-live="polite">Cargando base de datos…</p>
         </header>
         <ul class="lista__resultados">

@@ -556,15 +556,33 @@ function opcion(columna, valor, n) {
    `lista` devuelve centro×titulación y sin filtro de titulación el mismo centro
    se repetiría decenas de veces; las filas de un centro se funden en una y el
    total de titulaciones sigue visible en la cabecera. */
+/* "4.454 de 4.646 centros": la cabecera enseña siempre lo visible y el total
+   de la consulta, para que el recorte del encuadre se lea como recorte y no
+   como resultado absoluto. */
+function pareja(visible, total, sustantivo) {
+  return visible === total
+    ? `${miles.format(visible)} ${sustantivo}`
+    : `${miles.format(visible)} de ${miles.format(total)} ${sustantivo}`;
+}
+
 function renderLista(filas) {
-  if (filas.length === 0) {
-    elCuenta.textContent = 'Sin resultados';
-    elResultados.replaceChildren(vacio('Ningún centro con estos filtros.', 'lista__vacio'));
-    return;
-  }
+  const totalCentros = new Set(estado.filas.map(({ centro_codigo }) => centro_codigo)).size;
+  const recortada = filas.length !== estado.filas.length;
   const centros = agrupaCentros(filas);
   elCuenta.textContent =
-    `${miles.format(centros.length)} centros · ${miles.format(filas.length)} titulaciones`;
+    `${pareja(centros.length, totalCentros, 'centros')} · ` +
+    `${pareja(filas.length, estado.filas.length, 'titulaciones')}`;
+  if (filas.length === 0) {
+    elResultados.replaceChildren(
+      vacio(
+        recortada
+          ? 'Ningún centro con estos filtros en el área del mapa.'
+          : 'Ningún centro con estos filtros.',
+        'lista__vacio',
+      ),
+    );
+    return;
+  }
   elResultados.scrollTop = 0;
   elResultados.replaceChildren(...itemsDeLista(centros));
 }
