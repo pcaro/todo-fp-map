@@ -495,6 +495,23 @@ a:hover {
   color: var(--tinta-suave);
 }
 
+/* Identidad: punto del color del marcador + naturaleza y tipo. */
+.popup__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  color: var(--tinta);
+}
+
+.popup__punto {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--papel);
+  flex: none;
+}
+
 .popup__ensenanza {
   font-family: var(--mono);
   font-size: 0.72rem;

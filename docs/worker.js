@@ -173,7 +173,7 @@ function opGeojson(filtros) {
   // del centro traen la misma.
   const filas = sqlFilas(
     `SELECT centro_codigo, denominacion, municipio, provincia, ensenanza, naturaleza,
-            lat, lng
+            tipo_centro, count(*) AS n_ensenanzas, lat, lng
        FROM oferta_mapa${sql}
       GROUP BY centro_codigo`,
     params,
@@ -190,6 +190,11 @@ function opGeojson(filtros) {
         provincia: fila.provincia,
         ensenanza: fila.ensenanza,
         naturaleza: fila.naturaleza,
+        tipo_centro: fila.tipo_centro,
+        // Enseñanzas del centro que casan los filtros vigentes: sin filtro es
+        // toda su oferta de FP; con una titulación filtrada el popup enseña la
+        // titulación y no este número.
+        n_ensenanzas: fila.n_ensenanzas,
       },
     })),
   };

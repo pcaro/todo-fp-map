@@ -1115,6 +1115,24 @@ function montaLeyenda() {
   elMapa.append(leyenda);
 }
 
+/* Color de la naturaleza para el punto del popup: la misma paleta de las
+   capas del mapa, sin segunda fuente de verdad. */
+function colorNaturaleza(naturaleza) {
+  if (naturaleza === 'Centro público') {
+    return COLOR_PUBLICO;
+  }
+  if (naturaleza === 'Centro privado') {
+    return COLOR_PRIVADO;
+  }
+  return COLOR_CONCERTADO;
+}
+
+/* Texto de la línea de identidad: "Centro público · IES". Sin tipo de centro
+   (columna vacía en el registro) queda solo la naturaleza. */
+function metaNaturaleza({ naturaleza, tipo_centro }) {
+  return tipo_centro ? `${naturaleza} · ${tipo_centro}` : naturaleza;
+}
+
 /* Contenido del popup, construido con nodos y textContent como la ficha: las
    denominaciones vienen del scraper y aquí no se interpreta HTML ajeno. */
 function contenidoPopup(propiedades) {
@@ -1129,15 +1147,36 @@ function contenidoPopup(propiedades) {
   municipio.className = 'popup__municipio';
   municipio.textContent = propiedades.municipio;
 
-  caja.append(denominacion, municipio);
+  // Identidad con el color del propio marcador (la misma paleta de la
+  // leyenda) y tipo de centro: el popup dice qué clase de sitio es antes de
+  // entrar a la ficha.
+  const meta = document.createElement('p');
+  meta.className = 'popup__meta';
+
+  const punto = document.createElement('span');
+  punto.className = 'popup__punto';
+  punto.style.backgroundColor = colorNaturaleza(propiedades.naturaleza);
+
+  meta.append(punto, document.createTextNode(metaNaturaleza(propiedades)));
+  caja.append(denominacion, municipio, meta);
 
   // Sin titulación filtrada, la ensenanza del punto es una cualquiera de las
-  // del centro (la op geojson agrupa por centro): decirla sería engañoso.
+  // del centro (la op geojson agrupa por centro): decirla sería engañoso, así
+  // que se enseña el tamaño real de su oferta, que es lo que el popup puede
+  // prometer de verdad.
   if (estado.filtros.ensenanza) {
     const ensenanza = document.createElement('p');
     ensenanza.className = 'popup__ensenanza';
     ensenanza.textContent = propiedades.ensenanza;
     caja.append(ensenanza);
+  } else if (propiedades.n_ensenanzas > 0) {
+    const tamano = document.createElement('p');
+    tamano.className = 'popup__ensenanza';
+    tamano.textContent =
+      propiedades.n_ensenanzas === 1
+        ? '1 enseñanza de FP'
+        : `${miles.format(propiedades.n_ensenanzas)} enseñanzas de FP`;
+    caja.append(tamano);
   }
 
   const ficha = document.createElement('button');
