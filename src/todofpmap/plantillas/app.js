@@ -177,11 +177,8 @@ async function arranca() {
     const { centros, oferta } = estado.datos;
     pintaCarga(`${miles.format(centros)} centros · ${miles.format(oferta)} titulaciones`);
 
-    // El estado venido de la URL se aplica antes del primer repintado, para que
-    // la primera tanda de consultas ya salga filtrada y no haya un flash de
-    // "los 35.442" que enseguida se corrige.
-    aplicaEstadoURL();
-
+    // El estado de la URL ya está aplicado desde el arranque síncrono del
+    // módulo (ver el final del fichero); aquí solo queda repintar.
     await aplicaFiltros();
   } catch (error) {
     falla(error);
@@ -440,12 +437,23 @@ const vacio = (texto, clase = 'faceta__vacio') => {
 };
 
 /* Pinta las cinco columnas de facetas. Cada valor es un checkbox con su conteo;
-   los activos se marcan a partir de `estado.filtros`, no del DOM anterior. */
+   los activos se marcan a partir de `estado.filtros`, no del DOM anterior.
+
+   Un valor activo que con los demás filtros ya no casa ninguna fila no aparece
+   en los conteos (GROUP BY solo devuelve n >= 1): se pinta con conteo 0 para
+   que su checkbox siga a la vista y se pueda desmarcar. Sin esto, una
+   combinación sin resultados deja la UI bloqueada sin forma de volver. */
 function renderFacetas(facetas) {
   const scroll = elFacetas.scrollTop;
   for (const columna of FACETAS) {
     const lista = elFacetasCuerpo.querySelector(`ul[data-faceta="${columna}"]`);
-    const valores = facetas[columna] ?? [];
+    const valores = [...(facetas[columna] ?? [])];
+    const pintados = new Set(valores.map(([valor]) => valor));
+    for (const activo of estado.filtros[columna]) {
+      if (!pintados.has(activo)) {
+        valores.push([activo, 0]);
+      }
+    }
     lista.replaceChildren(
       ...(valores.length === 0
         ? [vacio('Sin valores')]
@@ -990,8 +998,23 @@ function leeEstadoURL() {
   const crudo = params.get('mapa');
   if (crudo) {
     const partes = crudo.split('/').map(Number);
-    if (partes.length === 3 && partes.every(Number.isFinite)) {
-      [mapa] = [{ zoom: partes[0], lat: partes[1], lng: partes[2] }];
+    // Rangos de verdad: un lat fuera de [-90, 90] hace saltar a jumpTo con
+    // "Invalid LngLat latitude value" y cae en el cartel de error de arranque.
+    const [zoom, lat, lng] = partes;
+    const valida =
+      partes.length === 3 &&
+      crudo.split('/').every(parte => parte !== '') &&
+      Number.isFinite(zoom) &&
+      zoom >= 0 &&
+      zoom <= 24 &&
+      Number.isFinite(lat) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      Number.isFinite(lng) &&
+      lng >= -180 &&
+      lng <= 180;
+    if (valida) {
+      mapa = { zoom, lat, lng };
     }
   }
   return { filtros, mapa };
@@ -1032,6 +1055,13 @@ function aplicaEstadoURL() {
   }
 }
 
+// Aplicado en el arranque síncrono del módulo, no tras descargar la db: durante
+// la descarga el mapa dispara moveend y escribeURL reescribe la barra de
+// direcciones, así que esperar a arranca() dejaría un segundo de URL sin
+// filtros (y un visitante que recargara ahí los perdería). Aquí el encuadre
+// además llega antes de que MapLibre pida las primeras teselas.
+aplicaEstadoURL();
+
 // Cada moveend reescribe solo la URL: el resto del repintado no depende del
 // encuadre (la lista filtra, no recorta por viewport). La suscripción real va
 // al final del módulo: alMoverCamara necesita `let alMover` inicializado.
@@ -1059,8 +1089,12 @@ function enlaceSql() {
     params.set('ensenanza', filtros.ensenanza);
   }
   for (const columna of FACETAS) {
-    for (const valor of filtros[columna]) {
-      params.append(columna, valor);
+    if (filtros[columna].length === 1) {
+      params.set(columna, filtros[columna][0]);
+    } else if (filtros[columna].length > 1) {
+      // Datasette lee parametros repetidos como AND y daria siempre 0 filas;
+      // su filtro `__in` acepta un array JSON.
+      params.set(`${columna}__in`, JSON.stringify(filtros[columna]));
     }
   }
   const activos = params.toString();
