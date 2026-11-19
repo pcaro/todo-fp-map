@@ -48,10 +48,25 @@
       <input type="checkbox" id="facetas-abiertas" class="facetas__control visualmente-oculto"
              aria-controls="facetas-cuerpo">
       <label class="facetas__resumen" for="facetas-abiertas">Filtros</label>
+      <!-- Todas las facetas son el mismo desplegable de selección múltiple:
+           recogido ocupan una línea con el resumen de lo marcado ("Todos" = nada
+           marcado = la db entera), desplegado la lista de checkboxes con sus
+           conteos. Naturaleza, la menos habitual, viene desplegada por defecto. -->
       <div id="facetas-cuerpo" class="facetas__cuerpo">
-        <!-- Grado, el filtro más usado, es un desplegable de selección múltiple:
-             desplegado vale una lista de 15 checkboxes y recogido, una línea.
-             "Todos" (= nada marcado) es el estado por defecto. -->
+        <section class="faceta faceta--desplegable" data-desplegable="naturaleza">
+          <button type="button" id="naturaleza-boton" class="desplegable__boton"
+                  aria-expanded="true" aria-controls="naturaleza-panel">
+            <span class="faceta__titulo faceta__titulo--desplegable">Naturaleza</span>
+            <span id="naturaleza-valor" class="desplegable__valor">Todos</span>
+            <span class="desplegable__flecha" aria-hidden="true">▾</span>
+          </button>
+          <div id="naturaleza-panel" class="desplegable__panel">
+            <ul class="faceta__opciones desplegable__opciones" data-faceta="naturaleza">
+              <li class="faceta__vacio">Cargando…</li>
+            </ul>
+          </div>
+        </section>
+
         <section class="faceta faceta--desplegable" data-desplegable="grado">
           <button type="button" id="grado-boton" class="desplegable__boton"
                   aria-expanded="false" aria-controls="grado-panel">
@@ -66,32 +81,46 @@
           </div>
         </section>
 
-        <section class="faceta">
-          <h2 class="faceta__titulo">Naturaleza</h2>
-          <ul class="faceta__opciones" data-faceta="naturaleza">
-            <li class="faceta__vacio">Cargando…</li>
-          </ul>
+        <section class="faceta faceta--desplegable" data-desplegable="modalidad">
+          <button type="button" id="modalidad-boton" class="desplegable__boton"
+                  aria-expanded="false" aria-controls="modalidad-panel">
+            <span class="faceta__titulo faceta__titulo--desplegable">Modalidad</span>
+            <span id="modalidad-valor" class="desplegable__valor">Todos</span>
+            <span class="desplegable__flecha" aria-hidden="true">▾</span>
+          </button>
+          <div id="modalidad-panel" class="desplegable__panel" hidden>
+            <ul class="faceta__opciones desplegable__opciones" data-faceta="modalidad">
+              <li class="faceta__vacio">Cargando…</li>
+            </ul>
+          </div>
         </section>
 
-        <section class="faceta">
-          <h2 class="faceta__titulo">Modalidad</h2>
-          <ul class="faceta__opciones" data-faceta="modalidad">
-            <li class="faceta__vacio">Cargando…</li>
-          </ul>
+        <section class="faceta faceta--desplegable" data-desplegable="familia">
+          <button type="button" id="familia-boton" class="desplegable__boton"
+                  aria-expanded="false" aria-controls="familia-panel">
+            <span class="faceta__titulo faceta__titulo--desplegable">Familia</span>
+            <span id="familia-valor" class="desplegable__valor">Todos</span>
+            <span class="desplegable__flecha" aria-hidden="true">▾</span>
+          </button>
+          <div id="familia-panel" class="desplegable__panel" hidden>
+            <ul class="faceta__opciones desplegable__opciones" data-faceta="familia">
+              <li class="faceta__vacio">Cargando…</li>
+            </ul>
+          </div>
         </section>
 
-        <section class="faceta">
-          <h2 class="faceta__titulo">Familia</h2>
-          <ul class="faceta__opciones" data-faceta="familia">
-            <li class="faceta__vacio">Cargando…</li>
-          </ul>
-        </section>
-
-        <section class="faceta">
-          <h2 class="faceta__titulo">Provincia</h2>
-          <ul class="faceta__opciones" data-faceta="provincia">
-            <li class="faceta__vacio">Cargando…</li>
-          </ul>
+        <section class="faceta faceta--desplegable" data-desplegable="provincia">
+          <button type="button" id="provincia-boton" class="desplegable__boton"
+                  aria-expanded="false" aria-controls="provincia-panel">
+            <span class="faceta__titulo faceta__titulo--desplegable">Provincia</span>
+            <span id="provincia-valor" class="desplegable__valor">Todos</span>
+            <span class="desplegable__flecha" aria-hidden="true">▾</span>
+          </button>
+          <div id="provincia-panel" class="desplegable__panel" hidden>
+            <ul class="faceta__opciones desplegable__opciones" data-faceta="provincia">
+              <li class="faceta__vacio">Cargando…</li>
+            </ul>
+          </div>
         </section>
       </div>
 
@@ -113,6 +142,11 @@
       <section id="lista" class="lista" aria-labelledby="lista-titulo">
         <header class="lista__cabecera">
           <h2 id="lista-titulo" class="lista__titulo">Centros</h2>
+          <label class="lista__vista" for="solo-mapa"
+                 title="Limita la lista a los centros dentro del encuadre del mapa">
+            <input type="checkbox" id="solo-mapa" checked>
+            <span>En el mapa</span>
+          </label>
           <p id="lista-cuenta" class="lista__cuenta" aria-live="polite">Cargando base de datos…</p>
         </header>
         <ul class="lista__resultados">
