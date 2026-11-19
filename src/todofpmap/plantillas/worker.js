@@ -152,10 +152,114 @@ function opLista(filtros) {
   );
 }
 
+// Puntos del mapa. Una feature por centro×titulación, igual que la lista: el
+// mapa no agrega por centro, así que un centro con siete titulaciones aporta
+// siete features con la misma coordenada.
+//
+// `oferta_mapa` ya filtra `c.lat IS NOT NULL`, de modo que aquí no hay nada que
+// descartar. Las coordenadas van en orden [lng, lat], que es el de GeoJSON y el
+// inverso del de las columnas de la vista: es donde se cuela el bug.
+function opGeojson(filtros) {
+  const { sql, params } = construyeWhere(filtros);
+  const filas = sqlFilas(
+    `SELECT centro_codigo, denominacion, municipio, provincia, ensenanza, naturaleza,
+            lat, lng
+       FROM oferta_mapa${sql}`,
+    params,
+  );
+  return {
+    type: 'FeatureCollection',
+    features: filas.map(fila => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [fila.lng, fila.lat] },
+      properties: {
+        codigo: fila.centro_codigo,
+        denominacion: fila.denominacion,
+        municipio: fila.municipio,
+        provincia: fila.provincia,
+        ensenanza: fila.ensenanza,
+        naturaleza: fila.naturaleza,
+      },
+    })),
+  };
+}
+
+// Columnas de la ficha: las mismas que expone la vista `mapa` menos
+// n_ensenanzas, que aquí se calcula con la misma expresión que la vista.
+const COLUMNAS_FICHA = [
+  'codigo',
+  'denominacion',
+  'municipio',
+  'provincia',
+  'naturaleza',
+  'tipo_centro',
+  'domicilio',
+  'cod_postal',
+  'lat',
+  'lng',
+  'geo_precision',
+];
+
+// Ficha de un centro: sus datos y todas sus titulaciones de FP.
+//
+// Las dos consultas van a las tablas, no a las vistas: `mapa` y `oferta_mapa`
+// empiezan por `lat IS NOT NULL`, así que un centro sin ubicar saldría con la
+// ficha vacía de ofertas. La ficha es justo el sitio donde mirar un centro que
+// no se ha podido geocodificar, así que el filtro que se replica es el otro,
+// `es_fp = 1` (que es lo único que añade la vista aparte de la coordenada).
+function opFicha(codigo) {
+  // El código es TEXT en la db: si viajara como número, SQLite no encontraría
+  // la fila (compara tipos, no convierte).
+  const clave = String(codigo);
+  const [centro] = sqlFilas(
+    `SELECT ${COLUMNAS_FICHA.join(', ')},
+            (SELECT count(*) FROM oferta o
+              WHERE o.centro_codigo = c.codigo AND o.es_fp = 1) AS n_ensenanzas
+       FROM centros c
+      WHERE c.codigo = ?`,
+    [clave],
+  );
+  if (!centro) {
+    throw new Error(`no hay ningún centro con código ${clave}`);
+  }
+  const ofertas = sqlFilas(
+    `SELECT grado, ensenanza, modalidad
+       FROM oferta
+      WHERE centro_codigo = ? AND es_fp = 1
+      ORDER BY grado, ensenanza`,
+    [clave],
+  );
+  return { centro, ofertas };
+}
+
+// La lista de titulaciones es un datalist de sugerencias, no un catálogo: con
+// veinte coincidencias se elige en un par de teclas.
+const LIMITE_TITULACIONES = 20;
+
+// Titulaciones cuyo nombre contiene `q`, para el autocompletado del filtro.
+// Sale de oferta_mapa (la misma fuente que la faceta ensenanza) para que no se
+// sugiera una titulación que luego no devuelva ninguna fila. Un q vacío no es
+// una consulta: devuelve lista vacía en vez de las veinte primeras, y así el
+// datalist no se despliega al enfocar el campo.
+function opTitulaciones(q) {
+  const patron = (q ?? '').trim();
+  if (patron === '') {
+    return [];
+  }
+  return sqlFilas(
+    `SELECT DISTINCT ensenanza FROM oferta_mapa WHERE ensenanza LIKE ?
+     ORDER BY ensenanza LIMIT ${LIMITE_TITULACIONES}`,
+    [`%${patron}%`],
+  ).map(fila => fila.ensenanza);
+}
+
 const ops = {
   init: opInit,
   facetas: opFacetas,
   lista: opLista,
+  geojson: opGeojson,
+  ficha: opFicha,
+  titulaciones: opTitulaciones,
 };
 
 // ---------------------------------------------------------------- despacho
