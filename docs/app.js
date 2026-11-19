@@ -236,7 +236,10 @@ async function aplicaFiltros() {
     }
     estado.facetas = facetas;
     renderFacetas(facetas);
-    renderLista(filas);
+    // `estado.filas` conserva TODO lo filtrado: al mover el mapa la lista se
+    // recorta en el cliente contra lo ya descargado, sin volver a consultar.
+    estado.filas = filas;
+    renderLista(filasEnVista(filas));
     datosMapa = geojson;
     pintaMapa();
   } catch (error) {
@@ -246,38 +249,64 @@ async function aplicaFiltros() {
   }
 }
 
-// El desplegable de Grado: mismo estado y misma delegación de checkboxes que
-// el resto de facetas (el ul de dentro lleva data-faceta="grado"), pero el
-// interruptor es un botón con etiqueta resumen en vez de una lista siempre
-// visible. "Todos" = nada marcado = la db entera.
-const elGradoBoton = document.querySelector('#grado-boton');
-const elGradoPanel = document.querySelector('#grado-panel');
-const elGradoValor = document.querySelector('#grado-valor');
+// Las cinco facetas son el mismo desplegable de selección múltiple: mismo
+// estado y misma delegación de checkboxes (los ul de dentro llevan
+// data-faceta), pero el interruptor es un botón con resumen en vez de una
+// lista siempre visible. "Todos" = nada marcado = la db entera. En el HTML solo
+// Naturaleza viene desplegada; el resto se abren al pincharlos.
+const desplegables = new Map(
+  FACETAS.map(columna => {
+    const seccion = document.querySelector(`[data-desplegable="${columna}"]`);
+    return [
+      columna,
+      {
+        boton: seccion.querySelector('.desplegable__boton'),
+        panel: seccion.querySelector('.desplegable__panel'),
+        valor: seccion.querySelector('.desplegable__valor'),
+      },
+    ];
+  })
+);
 
-function actualizaEtiquetaGrado() {
-  const n = estado.filtros.grado.length;
-  elGradoValor.textContent = n === 0 ? 'Todos' : n === 1 ? '1 grado' : `${n} grados`;
+function actualizaEtiqueta(columna) {
+  const n = estado.filtros[columna].length;
+  desplegables.get(columna).valor.textContent =
+    n === 0 ? 'Todos' : n === 1 ? '1 marcado' : `${n} marcados`;
 }
 
-function toggleGrado(abierto) {
-  elGradoPanel.hidden = !abierto;
-  elGradoBoton.setAttribute('aria-expanded', String(abierto));
+function toggleDesplegable(columna, abierto) {
+  const { boton, panel } = desplegables.get(columna);
+  panel.hidden = !abierto;
+  boton.setAttribute('aria-expanded', String(abierto));
 }
 
-elGradoBoton.addEventListener('click', () => {
-  toggleGrado(elGradoPanel.hidden);
-});
+function cierraDesplegables() {
+  for (const columna of desplegables.keys()) {
+    toggleDesplegable(columna, false);
+  }
+}
 
-// Clic fuera del desplegable o Escape lo recogen, como cualquier menú nativo.
+for (const [columna, { boton }] of desplegables) {
+  boton.addEventListener('click', () => {
+    // Abrir uno cierra los demás, como cualquier menú: cinco listas abiertas
+    // a la vez no caben y no aportan nada.
+    const estabaAbierto = boton.getAttribute('aria-expanded') === 'true';
+    cierraDesplegables();
+    toggleDesplegable(columna, !estabaAbierto);
+  });
+}
+
+// Clic fuera de los desplegables o Escape los recogen, como cualquier menú
+// nativo.
 document.addEventListener('click', evento => {
-  if (!evento.target.closest('[data-desplegable="grado"]')) {
-    toggleGrado(false);
+  if (!evento.target.closest('.faceta--desplegable')) {
+    cierraDesplegables();
   }
 });
 
 document.addEventListener('keydown', evento => {
   if (evento.key === 'Escape') {
-    toggleGrado(false);
+    cierraDesplegables();
   }
 });
 
@@ -491,7 +520,9 @@ function renderFacetas(facetas) {
         : valores.map(([valor, n]) => opcion(columna, valor, n))),
     );
   }
-  actualizaEtiquetaGrado();
+  for (const columna of FACETAS) {
+    actualizaEtiqueta(columna);
+  }
   elFacetas.scrollTop = scroll;
 }
 
@@ -526,7 +557,6 @@ function opcion(columna, valor, n) {
    se repetiría decenas de veces; las filas de un centro se funden en una y el
    total de titulaciones sigue visible en la cabecera. */
 function renderLista(filas) {
-  estado.filas = filas;
   if (filas.length === 0) {
     elCuenta.textContent = 'Sin resultados';
     elResultados.replaceChildren(vacio('Ningún centro con estos filtros.', 'lista__vacio'));
@@ -538,6 +568,49 @@ function renderLista(filas) {
   elResultados.scrollTop = 0;
   elResultados.replaceChildren(...itemsDeLista(centros));
 }
+
+// ------------------------------------------------------------------ vista
+
+/* La lista puede limitarse a lo que se ve en el mapa: "¿qué hay en esta
+   comarca?" sin saber el nombre del municipio, que es justo lo que hace bien
+   un mapa y mal una lista nacional. Los conteos de las facetas siguen siendo
+   globales (reflejan la consulta, no la ventana): encogerlos al encuadre
+   haría que pinchar un valor viera menos valores disponibles, que es la
+   definición de una trampa. */
+const elSoloMapa = document.querySelector('#solo-mapa');
+
+function limitesMapa() {
+  try {
+    const b = mapa.getBounds();
+    return { oeste: b.getWest(), sur: b.getSouth(), este: b.getEast(), norte: b.getNorth() };
+  } catch {
+    return null; // mapa aún sin estilo: la lista completa, sin recortar
+  }
+}
+
+function filasEnVista(filas) {
+  if (!elSoloMapa.checked || !estado.datos) {
+    return filas;
+  }
+  const b = limitesMapa();
+  if (!b) {
+    return filas;
+  }
+  return filas.filter(
+    ({ lat, lng }) =>
+      lat !== null && lng !== null && lat >= b.sur && lat <= b.norte && lng >= b.oeste && lng <= b.este
+  );
+}
+
+// Repinta la lista con lo que ya hay en memoria: mover el mapa no dispara
+// consultas nuevas, solo el recorte del cliente.
+function recortaPorVista() {
+  if (estado.datos) {
+    renderLista(filasEnVista(estado.filas));
+  }
+}
+
+elSoloMapa.addEventListener('change', recortaPorVista);
 
 // Un Map por código de centro conserva el orden de llegada del worker aunque
 // dos centros compartan municipio y denominación (el ORDER BY no desempata por
@@ -892,9 +965,9 @@ function montaMapa() {
   mapa.addSource('centros', {
     type: 'geojson',
     data: { type: 'FeatureCollection', features: [] },
-    // 35k centro×titulación sin agrupar son una mancha. 60 px de radio agrupa
-    // lo que se lee junto a zoom 5 y deja de agrupar a 14, donde ya se
-    // distinguen centros vecinos.
+    // Con un punto por centro son 4.646 sin filtro, una mancha igual a
+    // zoom bajo. 60 px de radio agrupa lo que se lee junto a zoom 5 y deja de
+    // agrupar a 14, donde ya se distinguen centros vecinos.
     cluster: true,
     clusterMaxZoom: 14,
     clusterRadius: 60,
@@ -1040,8 +1113,8 @@ function contenidoPopup(propiedades) {
 
   caja.append(denominacion, municipio);
 
-  // Sin titulación filtrada, la del punto es una de las muchas del centro
-  // (una feature por centro×titulación): decirla sería engañoso.
+  // Sin titulación filtrada, la ensenanza del punto es una cualquiera de las
+  // del centro (la op geojson agrupa por centro): decirla sería engañoso.
   if (estado.filtros.ensenanza) {
     const ensenanza = document.createElement('p');
     ensenanza.className = 'popup__ensenanza';
@@ -1226,22 +1299,29 @@ function mueveCamara({ zoom, lat, lng }) {
 
 // Quien quiera enterarse de que la cámara se movió (T9, para reescribir la URL)
 // se suscribe aquí. Hay un solo interesado: una variable, no un emisor.
-let alMover = null;
+const suscriptoresCamara = new Set();
 
 function alMoverCamara(fn) {
-  alMover = fn;
+  suscriptoresCamara.add(fn);
 }
 
-mapa.on('moveend', () => alMover?.(camaraMapa()));
+mapa.on('moveend', () => {
+  const camara = camaraMapa();
+  for (const fn of suscriptoresCamara) {
+    fn(camara);
+  }
+});
 
 // ------------------------------------------------------------------ exports
 
 // El botón de SQL tiene un href desde el primer momento (sin filtros): la
 // versión filtrada la recalcula aplicaFiltros en cada repintado.
 enlaceSql();
-// Suscripción tardía y deliberada: `let alMover` vive arriba, en la sección de
-// cámara, y una llamada antes de su declaración tumba el módulo entero.
+// Dos interesados en cada moveend: la URL se reescribe y la lista se recorta
+// al encuadre. Al final del fichero porque suscriben contra la sección de
+// cámara de arriba.
 alMoverCamara(escribeURL);
+alMoverCamara(recortaPorVista);
 
 export { estado, consulta, aplicaFiltros, abreFicha, camaraMapa, mueveCamara, alMoverCamara };
 

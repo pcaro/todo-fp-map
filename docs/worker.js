@@ -162,10 +162,20 @@ function opLista(filtros) {
 // inverso del de las columnas de la vista: es donde se cuela el bug.
 function opGeojson(filtros) {
   const { sql, params } = construyeWhere(filtros);
+  // Una feature por CENTRO, no por centro×titulación: `oferta_mapa` trae una
+  // fila por enseñanza y un centro con 6 titulaciones aportaría 6 puntos
+  // apilados en las mismas coordenadas. Los racimos cuentan entonces
+  // "titulaciones en la zona", no centros, y un IES mediano parece seis
+  // escuelas. GROUP BY centro_codigo (SQLite permite columnas desnudas: las
+  // demás columnas son iguales en todas las filas del centro). Sin filtro de
+  // titulación la columna `ensenanza` es arbitraria, pero el popup solo la
+  // enseña cuando hay una titulación filtrada, y en ese caso todas las filas
+  // del centro traen la misma.
   const filas = sqlFilas(
     `SELECT centro_codigo, denominacion, municipio, provincia, ensenanza, naturaleza,
             lat, lng
-       FROM oferta_mapa${sql}`,
+       FROM oferta_mapa${sql}
+      GROUP BY centro_codigo`,
     params,
   );
   return {
