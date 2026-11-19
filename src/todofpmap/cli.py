@@ -267,7 +267,13 @@ def cmd_web(args: argparse.Namespace) -> None:
 
     gz = destino / "centros.sqlite.gz"
     _consola(f"→ comprimiendo {DB_REDUCIDA} → {gz}")
-    with DB_REDUCIDA.open("rb") as origen, gzip.open(gz, "wb") as comprimido:
+    # mtime fijo: mismo contenido -> mismo blob. Si el .gz cambiara de hash en
+    # cada `todofp web`, cada commit de datos arrastraria un binario "nuevo" de
+    # 1 MB por el histórico del repo aunque la base no hubiera cambiado.
+    with (
+        DB_REDUCIDA.open("rb") as origen,
+        gzip.GzipFile(filename="", mode="wb", fileobj=gz.open("wb"), mtime=0) as comprimido,
+    ):
         shutil.copyfileobj(origen, comprimido)
 
     megas = DB_REDUCIDA.stat().st_size / 1_048_576
