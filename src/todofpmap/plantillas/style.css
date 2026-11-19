@@ -322,6 +322,46 @@ a:hover {
   color: var(--tinta-suave);
 }
 
+/* Opciones de faceta: las pinta app.js con su checkbox y su conteo. */
+.faceta__opcion {
+  margin: 0;
+}
+
+.faceta__etiqueta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.1rem 0;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.faceta__etiqueta:hover .faceta__valor {
+  color: var(--acento);
+}
+
+.faceta__etiqueta input {
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--acento);
+}
+
+.faceta__etiqueta input:checked ~ .faceta__valor {
+  font-weight: 600;
+}
+
+.faceta__valor {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.faceta__cuenta {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--tinta-suave);
+}
+
 .facetas__pie {
   margin-top: 1rem;
   padding: 0.75rem 1rem 0;
@@ -367,6 +407,7 @@ a:hover {
   top: 50%;
   left: 50%;
   z-index: 2;
+  max-width: min(32rem, 80%);
   margin: 0;
   padding: 0.5rem 0.85rem;
   transform: translate(-50%, -50%);
@@ -377,6 +418,11 @@ a:hover {
   font-size: 0.78rem;
   color: var(--tinta-suave);
   pointer-events: none;
+}
+
+.mapa__estado--error {
+  border-color: var(--aviso);
+  color: var(--aviso);
 }
 
 .aviso {
@@ -466,6 +512,12 @@ a:hover {
 
 .ficha__titulo {
   margin-bottom: 0.4rem;
+}
+
+/* Filas del esqueleto de lista que pinta app.js; T7 las sustituye. */
+.lista__fila {
+  padding: 0.2rem 0;
+  font-size: 0.88rem;
 }
 
 .ficha__vacio {

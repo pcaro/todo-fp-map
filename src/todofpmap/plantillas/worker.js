@@ -55,6 +55,7 @@ function sqlFilas(sql, params = []) {
 // WHERE compartido por todas las consultas de la UI (facetas, lista, geojson).
 // Cada filtro activo aporta un placeholder: `ensenanza = ?` y una igualdad por
 // valor dentro de `IN (?,?)`. Los filtros vacíos o nulos no generan cláusula.
+// Las columnas de array son las cinco con faceta en el sidebar.
 function construyeWhere(filtros = {}) {
   const clausulas = [];
   const params = [];
@@ -64,7 +65,7 @@ function construyeWhere(filtros = {}) {
     params.push(filtros.ensenanza);
   }
 
-  for (const columna of ['grado', 'provincia', 'naturaleza', 'modalidad']) {
+  for (const columna of ['grado', 'familia', 'provincia', 'naturaleza', 'modalidad']) {
     const valores = filtros[columna] ?? [];
     if (valores.length === 0) {
       continue;
