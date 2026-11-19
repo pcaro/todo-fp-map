@@ -177,6 +177,11 @@ async function arranca() {
     const { centros, oferta } = estado.datos;
     pintaCarga(`${miles.format(centros)} centros · ${miles.format(oferta)} titulaciones`);
 
+    // El estado venido de la URL se aplica antes del primer repintado, para que
+    // la primera tanda de consultas ya salga filtrada y no haya un flash de
+    // "los 35.442" que enseguida se corrige.
+    aplicaEstadoURL();
+
     await aplicaFiltros();
   } catch (error) {
     falla(error);
@@ -224,6 +229,8 @@ let turno = 0;
 async function aplicaFiltros() {
   const mio = ++turno;
   renderTitulacionActiva();
+  escribeURL();
+  enlaceSql();
   elCuenta.textContent = 'Filtrando…';
   try {
     const [facetas, filas, geojson] = await Promise.all([
@@ -962,6 +969,105 @@ function pintaMapa() {
   elEstadoMapa.hidden = true;
 }
 
+// ------------------------------------------------------------------ URL
+
+/* La URL es el estado: cualquier vista de esta web es un enlace compartible.
+   Mismas claves que Filtros + `mapa=z/lat/lng` con 2 decimales (la precisión de
+   camaraMapa). Sin `#`: querystring normal, cacheable por el navegador. */
+
+function leeEstadoURL() {
+  const params = new URLSearchParams(location.search);
+  const filtros = { ensenanza: null, grado: [], familia: [], provincia: [], naturaleza: [], modalidad: [] };
+  for (const columna of FACETAS) {
+    filtros[columna] = params.getAll(columna).filter(valor => valor !== '');
+  }
+  const ensenanza = params.get('ensenanza');
+  if (ensenanza) {
+    filtros.ensenanza = ensenanza;
+  }
+  // z/lat/lng: el encuadre. Lo que no sean tres números se ignora sin drama.
+  let mapa = null;
+  const crudo = params.get('mapa');
+  if (crudo) {
+    const partes = crudo.split('/').map(Number);
+    if (partes.length === 3 && partes.every(Number.isFinite)) {
+      [mapa] = [{ zoom: partes[0], lat: partes[1], lng: partes[2] }];
+    }
+  }
+  return { filtros, mapa };
+}
+
+/* Vuelca el estado en la URL con replaceState: compartir es copiar la barra de
+   direcciones, y el botón atrás no da un paso por cada checkbox. */
+function escribeURL() {
+  const params = new URLSearchParams();
+  const { filtros } = estado;
+  if (filtros.ensenanza) {
+    params.set('ensenanza', filtros.ensenanza);
+  }
+  for (const columna of FACETAS) {
+    for (const valor of filtros[columna]) {
+      params.append(columna, valor);
+    }
+  }
+  const { zoom, lat, lng } = camaraMapa();
+  params.set('mapa', `${zoom}/${lat}/${lng}`);
+  // URLSearchParams escapa las barras como %2F: en un querystring son legales
+  // sin escapar y quedan mucho mejor a la vista (mapa=7/40.4/-3.7).
+  history.replaceState(null, '', `${location.pathname}?${params}`.replaceAll('%2F', '/'));
+}
+
+/* Estado inicial desde la URL. Se captura aquí, en la carga del módulo, y no
+   releyendo location.search dentro de arranca: el mapa dispara un moveend
+   durante su arranque, escribeURL reescribe la barra de direcciones antes de
+   que la db esté abierta y los parámetros con los que llegó el visitante se
+   perderían. */
+const alAbrir = leeEstadoURL();
+
+function aplicaEstadoURL() {
+  const { filtros, mapa } = alAbrir;
+  Object.assign(estado.filtros, filtros);
+  if (mapa) {
+    mueveCamara(mapa);
+  }
+}
+
+// Cada moveend reescribe solo la URL: el resto del repintado no depende del
+// encuadre (la lista filtra, no recorta por viewport). La suscripción real va
+// al final del módulo: alMoverCamara necesita `let alMover` inicializado.
+
+// ------------------------------------------------------------------ modo SQL
+
+/* Enlace "Explorar con SQL": la misma db en Datasette Lite, ya filtrada por
+   lo que hay activo. El base es el enlace "Por titulación" del README; los
+   filtros van como queryparams de Datasette justo antes de las facetas del
+   fragmento. */
+const SQL_BASE =
+  'https://lite.datasette.io/?install=datasette-maplibre&s.settings.max_returned_rows=40000' +
+  '&s.plugins.datasette-maplibre.container=div.metadata-description' +
+  '&url=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/centros.sqlite' +
+  '&metadata=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/metadata.yml';
+const SQL_COLA =
+  '_facet=ensenanza&_facet=provincia&_facet=naturaleza&_facet_size=8' +
+  '%23map=4.9/40.3/-3.6&color=ensenanza';
+const elSql = document.querySelector('#btn-sql');
+
+function enlaceSql() {
+  const params = new URLSearchParams();
+  const { filtros } = estado;
+  if (filtros.ensenanza) {
+    params.set('ensenanza', filtros.ensenanza);
+  }
+  for (const columna of FACETAS) {
+    for (const valor of filtros[columna]) {
+      params.append(columna, valor);
+    }
+  }
+  const activos = params.toString();
+  elSql.href =
+    `${SQL_BASE}#/centros/oferta_mapa?` + (activos ? `${activos}&` : '') + SQL_COLA;
+}
+
 // ------------------------------------------------------------------ cámara
 
 // 2 decimales ≈ 1 km: la precisión con la que T9 guarda el encuadre en la URL.
@@ -991,6 +1097,13 @@ function alMoverCamara(fn) {
 mapa.on('moveend', () => alMover?.(camaraMapa()));
 
 // ------------------------------------------------------------------ exports
+
+// El botón de SQL tiene un href desde el primer momento (sin filtros): la
+// versión filtrada la recalcula aplicaFiltros en cada repintado.
+enlaceSql();
+// Suscripción tardía y deliberada: `let alMover` vive arriba, en la sección de
+// cámara, y una llamada antes de su declaración tumba el módulo entero.
+alMoverCamara(escribeURL);
 
 export { estado, consulta, aplicaFiltros, abreFicha, camaraMapa, mueveCamara, alMoverCamara };
 
