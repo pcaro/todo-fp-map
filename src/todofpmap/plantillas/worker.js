@@ -88,8 +88,74 @@ async function opInit(bytes) {
   return { centros: centros.n, oferta: oferta.n };
 }
 
+// Columnas con faceta en el sidebar. Son literales del módulo, no entrada del
+// usuario: se interpolan en la SQL sin placeholder (los valores sí van por ?).
+const COLUMNAS_FACETA = ['grado', 'familia', 'provincia', 'naturaleza', 'modalidad'];
+
+// La UI no pinta más de un puñado de valores por faceta; 200 es el tope que
+// evita que una columna con cientos de valores hinche la respuesta sin que
+// nadie llegue a verlos.
+const LIMITE_FACETA = 200;
+
+const COLUMNAS_LISTA = [
+  'centro_codigo',
+  'denominacion',
+  'municipio',
+  'localidad',
+  'provincia',
+  'naturaleza',
+  'tipo_centro',
+  'domicilio',
+  'cod_postal',
+  'grado',
+  'familia',
+  'ensenanza',
+  'modalidad',
+  'lat',
+  'lng',
+  'geo_precision',
+];
+
+// Conteo de una columna para el sidebar: se ignoran los filtros de la propia
+// columna (si no, el GROUP BY solo devolvería el valor ya marcado) y se
+// aplican los demás. Los valores vacíos no son una opción de filtro.
+function faceta(filtros, columna) {
+  const resto = { ...filtros };
+  delete resto[columna];
+  const { sql, params } = construyeWhere(resto);
+  const sinVacios = sql ? `${sql} AND ${columna} <> ''` : ` WHERE ${columna} <> ''`;
+  return sqlFilas(
+    `SELECT ${columna} AS valor, COUNT(*) AS n FROM oferta_mapa${sinVacios}
+     GROUP BY ${columna} ORDER BY n DESC, ${columna} LIMIT ${LIMITE_FACETA}`,
+    params,
+  ).map(fila => [fila.valor, fila.n]);
+}
+
+// Conteos por columna para las cinco facetas: una SQL por columna, todas con
+// los mismos filtros salvo el de la columna que se cuenta.
+function opFacetas(filtros) {
+  const facetas = {};
+  for (const columna of COLUMNAS_FACETA) {
+    facetas[columna] = faceta(filtros, columna);
+  }
+  return facetas;
+}
+
+// Filas del panel lateral, una por centro×titulación. Sin límite: con 35k
+// filas el coste de serializar es asumible y recortar rompería los conteos.
+function opLista(filtros) {
+  const { sql, params } = construyeWhere(filtros);
+  return sqlFilas(
+    `SELECT ${COLUMNAS_LISTA.join(', ')} FROM oferta_mapa${sql}
+     ORDER BY provincia, municipio, denominacion`,
+    params,
+  );
+}
+
 const ops = {
   init: opInit,
+  facetas: opFacetas,
+  lista: opLista,
 };
 
 // ---------------------------------------------------------------- despacho
