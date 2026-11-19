@@ -8,6 +8,8 @@ distintas**, sacados del registro oficial del Ministerio de Educación.
 
 **[https://pcaro.github.io/todo-fp-map/](https://pcaro.github.io/todo-fp-map/)**
 
+[![Mapa de los centros de FP en España](docs/mapa.png)](https://pcaro.github.io/todo-fp-map/)
+
 Datos del curso 2024/2025. Sin instalación y sin backend: es una página
 estática en GitHub Pages. El navegador baja la base de datos comprimida
 (1,02 MB gzip), la abre con SQLite compilado a WebAssembly (sql.js) dentro de
@@ -37,8 +39,6 @@ Datasette.
 |---|---|---|
 | **Por titulación** | 35.442 filas: un centro y una titulación de FP por fila. Es la vista para responder *"¿dónde se estudia X?"* | **[Abrir el mapa →](https://lite.datasette.io/?install=datasette-maplibre&s.settings.max_returned_rows=40000&s.plugins.datasette-maplibre.container=div.metadata-description&url=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/centros.sqlite&metadata=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/metadata.yml#/centros/oferta_mapa?_facet=ensenanza&_facet=provincia&_facet=naturaleza&_facet_size=8%23map=4.9/40.3/-3.6&color=ensenanza)** |
 | **Por centro** | 4.646 puntos, un centro por fila, con `n_ensenanzas` (cuántas titulaciones de FP imparte) | **[Abrir el mapa →](https://lite.datasette.io/?install=datasette-maplibre&s.settings.max_returned_rows=40000&s.plugins.datasette-maplibre.container=div.metadata-description&url=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/centros.sqlite&metadata=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/metadata.yml#/centros/mapa?_facet=provincia&_facet_size=8%23map=4.9/40.3/-3.6&color=provincia)** |
-
-[![Mapa de los centros de FP en España](docs/mapa.png)](https://lite.datasette.io/?install=datasette-maplibre&s.settings.max_returned_rows=40000&s.plugins.datasette-maplibre.container=div.metadata-description&url=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/centros.sqlite&metadata=https://gist.githubusercontent.com/pcaro/266193048dfaef5cdc7e9d494f2cb207/raw/metadata.yml#/centros/oferta_mapa?_facet=ensenanza&_facet=provincia&_facet=naturaleza&_facet_size=8%23map=4.9/40.3/-3.6&color=ensenanza)
 
 ## Cómo usarlo
 
