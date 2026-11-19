@@ -57,10 +57,6 @@ const elBuscador = document.querySelector('#buscador');
 const elSugerencias = document.querySelector('#sugerencias');
 const elFicha = document.querySelector('#ficha');
 
-// Copia del panel de ficha tal y como lo deja el shell: cerrar una ficha es
-// volver a este estado, no inventarse un texto que ya vive en index.html.
-const fichaVacia = elFicha.cloneNode(true);
-
 // ------------------------------------------------------------------ worker
 
 const worker = new Worker('worker.js');
@@ -249,6 +245,41 @@ async function aplicaFiltros() {
     }
   }
 }
+
+// El desplegable de Grado: mismo estado y misma delegación de checkboxes que
+// el resto de facetas (el ul de dentro lleva data-faceta="grado"), pero el
+// interruptor es un botón con etiqueta resumen en vez de una lista siempre
+// visible. "Todos" = nada marcado = la db entera.
+const elGradoBoton = document.querySelector('#grado-boton');
+const elGradoPanel = document.querySelector('#grado-panel');
+const elGradoValor = document.querySelector('#grado-valor');
+
+function actualizaEtiquetaGrado() {
+  const n = estado.filtros.grado.length;
+  elGradoValor.textContent = n === 0 ? 'Todos' : n === 1 ? '1 grado' : `${n} grados`;
+}
+
+function toggleGrado(abierto) {
+  elGradoPanel.hidden = !abierto;
+  elGradoBoton.setAttribute('aria-expanded', String(abierto));
+}
+
+elGradoBoton.addEventListener('click', () => {
+  toggleGrado(elGradoPanel.hidden);
+});
+
+// Clic fuera del desplegable o Escape lo recogen, como cualquier menú nativo.
+document.addEventListener('click', evento => {
+  if (!evento.target.closest('[data-desplegable="grado"]')) {
+    toggleGrado(false);
+  }
+});
+
+document.addEventListener('keydown', evento => {
+  if (evento.key === 'Escape') {
+    toggleGrado(false);
+  }
+});
 
 // Un checkbox cambia un valor de su columna en `estado.filtros` y dispara el
 // recálculo. La delegación en el contenedor sobrevive a los repintados.
@@ -460,6 +491,7 @@ function renderFacetas(facetas) {
         : valores.map(([valor, n]) => opcion(columna, valor, n))),
     );
   }
+  actualizaEtiquetaGrado();
   elFacetas.scrollTop = scroll;
 }
 
@@ -607,6 +639,9 @@ async function abreFicha(codigo) {
   } catch (error) {
     if (mio === turnoFicha) {
       console.error(error);
+      // La ficha se abre también con el error: un panel que no aparece es menos
+      // honesto que uno que dice qué ha fallado.
+      elFicha.hidden = false;
       elFicha.replaceChildren(cabeceraFicha('Ficha del centro'), avisoFicha(error.message));
     }
   }
@@ -625,6 +660,10 @@ function marcaFila(codigo) {
 /* Toda la ficha se construye con nodos y textContent: denominaciones,
    domicilios y webs vienen del scraper y aquí no se interpreta HTML ajeno. */
 function renderFicha({ centro, ofertas }) {
+  // La ficha es un panel flotante sobre la lista: abrirla es taparla entera, no
+  // repartir la columna en dos mitades.
+  elFicha.hidden = false;
+
   const datos = document.createElement('dl');
   datos.className = 'ficha__datos';
   datos.append(...datosDeCentro(centro));
@@ -781,7 +820,10 @@ function avisoFicha(mensaje) {
 function cierraFicha() {
   turnoFicha++;
   estado.ficha = null;
-  elFicha.replaceChildren(...[...fichaVacia.cloneNode(true).childNodes]);
+  // Cerrar es ocultar y vaciar: al abrir la siguiente, renderFicha repone el
+  // contenido antes de quitar el hidden, así que nunca se ve la ficha anterior.
+  elFicha.replaceChildren();
+  elFicha.hidden = true;
   marcaFila(null);
 }
 
@@ -803,11 +845,30 @@ const mapa = new maplibregl.Map({
 // facetas). MapLibre solo escucha el resize de la ventana, no del contenedor.
 new ResizeObserver(() => mapa.resize()).observe(elMapa);
 
-// Mismos valores que --acento, --acento-oscuro y --papel de style.css:
-// MapLibre no lee variables CSS.
-const ACENTO = '#2c5f4b';
-const ACENTO_OSCURO = '#234d3d';
+// Mismo valor que --papel de style.css: MapLibre no lee variables CSS.
 const PAPEL = '#f6f4ee';
+
+// Puntos coloreados por naturaleza del centro: verde público, teja privado y
+// azul concertado. Saturados a propósito: sobre el teselado claro y beige de
+// Liberty unos tonos sobrios se funden con el fondo, y la distinción
+// público/privado se pierde a zoom bajo. El gris tinta es el comodín
+// (naturaleza vacía) y también el color de los racimos, que mezclan las tres:
+// si fueran verdes se leerían como 'aquí hay públicos'.
+const COLOR_PUBLICO = '#177a49';
+const COLOR_PRIVADO = '#c24c1e';
+const COLOR_CONCERTADO = '#2c63b8';
+const COLOR_NEUTRO = '#57534e';
+const COLOR_PUNTO = [
+  'match',
+  ['get', 'naturaleza'],
+  'Centro público',
+  COLOR_PUBLICO,
+  'Centro privado',
+  COLOR_PRIVADO,
+  'Centro concertado',
+  COLOR_CONCERTADO,
+  COLOR_NEUTRO,
+];
 
 // El radio crece con el racimo: 14 px para un barrio, 26 px para una provincia
 // entera (a zoom 5 los mayores agrupan miles de puntos).
@@ -847,7 +908,7 @@ function montaMapa() {
     source: 'centros',
     filter: ['has', 'point_count'],
     paint: {
-      'circle-color': ACENTO,
+      'circle-color': COLOR_NEUTRO,
       'circle-opacity': 0.18,
       'circle-radius': RADIO_HALO,
     },
@@ -859,7 +920,7 @@ function montaMapa() {
     source: 'centros',
     filter: ['has', 'point_count'],
     paint: {
-      'circle-color': ACENTO,
+      'circle-color': COLOR_NEUTRO,
       'circle-radius': RADIO_CLUSTER,
       'circle-stroke-color': PAPEL,
       'circle-stroke-width': 2,
@@ -881,18 +942,34 @@ function montaMapa() {
     paint: { 'text-color': PAPEL },
   });
 
+  // Halo de tinta bajo cada punto: lo despega del fondo del mapa (parques,
+  // tejados, etiquetas) sin engordar el punto ni matar el color con un borde.
+  mapa.addLayer({
+    id: 'puntos-halo',
+    type: 'circle',
+    source: 'centros',
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-color': '#2b2926',
+      'circle-opacity': 0.25,
+      'circle-radius': 13.5,
+    },
+  });
+
   mapa.addLayer({
     id: 'puntos',
     type: 'circle',
     source: 'centros',
     filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': ACENTO_OSCURO,
-      'circle-radius': 4,
+      'circle-color': COLOR_PUNTO,
+      'circle-radius': 10,
       'circle-stroke-color': PAPEL,
-      'circle-stroke-width': 1.5,
+      'circle-stroke-width': 3,
     },
   });
+
+  montaLeyenda();
 
   // Un racimo enseña lo que tiene dentro: dos niveles de zoom de golpe.
   mapa.on('click', 'clusters', evento => {
@@ -918,6 +995,33 @@ function montaMapa() {
   }
 
   pintaMapa();
+}
+
+/* Leyenda de los colores del mapa, en la esquina inferior derecha. Se monta
+   desde las mismas constantes que las capas: el DOM no puede leer el estilo de
+   MapLibre, y duplicar los hex en style.css sería una segunda fuente de verdad. */
+function montaLeyenda() {
+  const leyenda = document.createElement('div');
+  leyenda.className = 'leyenda';
+
+  const entradas = [
+    ['Centro público', COLOR_PUBLICO],
+    ['Centro privado', COLOR_PRIVADO],
+    ['Centro concertado', COLOR_CONCERTADO],
+  ];
+  for (const [etiqueta, color] of entradas) {
+    const entrada = document.createElement('p');
+    entrada.className = 'leyenda__entrada';
+
+    const muestra = document.createElement('span');
+    muestra.className = 'leyenda__muestra';
+    muestra.style.backgroundColor = color;
+
+    entrada.append(muestra, document.createTextNode(etiqueta));
+    leyenda.append(entrada);
+  }
+
+  elMapa.append(leyenda);
 }
 
 /* Contenido del popup, construido con nodos y textContent como la ficha: las

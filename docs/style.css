@@ -566,12 +566,106 @@ a:hover {
   cursor: default;
 }
 
+/* Desplegable de selección múltiple (Grado) --------------------------------- */
+
+.faceta--desplegable {
+  border-bottom: 1px solid var(--filete);
+}
+
+.desplegable__boton {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.desplegable__boton:hover {
+  background: var(--papel);
+}
+
+.faceta__titulo--desplegable {
+  margin: 0;
+}
+
+.desplegable__valor {
+  flex: 1 1 auto;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--tinta-suave);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desplegable__flecha {
+  font-size: 0.7rem;
+  color: var(--tinta-suave);
+  transition: transform 0.15s ease;
+}
+
+.desplegable__boton[aria-expanded='true'] .desplegable__flecha {
+  transform: rotate(180deg);
+}
+
+.desplegable__panel {
+  border-top: 1px solid var(--filete);
+}
+
+.desplegable__opciones {
+  max-height: 40vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--filete-fuerte) transparent;
+}
+
+/* Leyenda del mapa --------------------------------------------------------- */
+
+.leyenda {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 2rem;
+  z-index: 5;
+  padding: 0.5rem 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--filete);
+  border-radius: var(--radio);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.leyenda__entrada {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  color: var(--tinta);
+}
+
+.leyenda__entrada + .leyenda__entrada {
+  margin-top: 0.15rem;
+}
+
+.leyenda__muestra {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--papel);
+}
+
 /* Panel derecho: lista + ficha ---------------------------------------------- */
 
 .lateral {
   grid-area: lateral;
   display: flex;
   flex-direction: column;
+  position: relative;
   min-height: 0;
   background: var(--panel);
   border-left: 1px solid var(--filete);
@@ -619,13 +713,16 @@ a:hover {
   scrollbar-color: var(--filete-fuerte) transparent;
 }
 
+/* La ficha tapa la lista entera mientras está abierta, en vez de repartir la
+   columna en dos mitades: ver el centro seleccionado no puede exigir scroll. */
 .ficha {
-  flex: 0 0 auto;
-  max-height: 45%;
+  position: absolute;
+  inset: 0;
+  z-index: 20;
   padding: 0.9rem 1rem 1.1rem;
   overflow-y: auto;
   background: var(--papel);
-  border-top: 1px solid var(--filete-fuerte);
+  box-shadow: 0 0 14px rgba(0, 0, 0, 0.12);
   scrollbar-width: thin;
   scrollbar-color: var(--filete-fuerte) transparent;
 }
@@ -863,20 +960,9 @@ a:hover {
   }
 
   .lateral {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     min-height: 70vh;
     border-top: 1px solid var(--filete-fuerte);
     border-left: 0;
-  }
-
-  .lista {
-    border-right: 1px solid var(--filete);
-  }
-
-  .ficha {
-    max-height: none;
-    border-top: 0;
   }
 
   .lista__resultados {
@@ -898,16 +984,11 @@ a:hover {
   }
 
   .lateral {
-    grid-template-columns: minmax(0, 1fr);
     min-height: 0;
   }
 
   .lista {
     border-right: 0;
     border-bottom: 1px solid var(--filete-fuerte);
-  }
-
-  .ficha {
-    min-height: 9rem;
   }
 }

@@ -49,9 +49,33 @@
              aria-controls="facetas-cuerpo">
       <label class="facetas__resumen" for="facetas-abiertas">Filtros</label>
       <div id="facetas-cuerpo" class="facetas__cuerpo">
+        <!-- Grado, el filtro más usado, es un desplegable de selección múltiple:
+             desplegado vale una lista de 15 checkboxes y recogido, una línea.
+             "Todos" (= nada marcado) es el estado por defecto. -->
+        <section class="faceta faceta--desplegable" data-desplegable="grado">
+          <button type="button" id="grado-boton" class="desplegable__boton"
+                  aria-expanded="false" aria-controls="grado-panel">
+            <span class="faceta__titulo faceta__titulo--desplegable">Grado</span>
+            <span id="grado-valor" class="desplegable__valor">Todos</span>
+            <span class="desplegable__flecha" aria-hidden="true">▾</span>
+          </button>
+          <div id="grado-panel" class="desplegable__panel" hidden>
+            <ul class="faceta__opciones desplegable__opciones" data-faceta="grado">
+              <li class="faceta__vacio">Cargando…</li>
+            </ul>
+          </div>
+        </section>
+
         <section class="faceta">
-          <h2 class="faceta__titulo">Grado</h2>
-          <ul class="faceta__opciones" data-faceta="grado">
+          <h2 class="faceta__titulo">Naturaleza</h2>
+          <ul class="faceta__opciones" data-faceta="naturaleza">
+            <li class="faceta__vacio">Cargando…</li>
+          </ul>
+        </section>
+
+        <section class="faceta">
+          <h2 class="faceta__titulo">Modalidad</h2>
+          <ul class="faceta__opciones" data-faceta="modalidad">
             <li class="faceta__vacio">Cargando…</li>
           </ul>
         </section>
@@ -66,20 +90,6 @@
         <section class="faceta">
           <h2 class="faceta__titulo">Provincia</h2>
           <ul class="faceta__opciones" data-faceta="provincia">
-            <li class="faceta__vacio">Cargando…</li>
-          </ul>
-        </section>
-
-        <section class="faceta">
-          <h2 class="faceta__titulo">Naturaleza</h2>
-          <ul class="faceta__opciones" data-faceta="naturaleza">
-            <li class="faceta__vacio">Cargando…</li>
-          </ul>
-        </section>
-
-        <section class="faceta">
-          <h2 class="faceta__titulo">Modalidad</h2>
-          <ul class="faceta__opciones" data-faceta="modalidad">
             <li class="faceta__vacio">Cargando…</li>
           </ul>
         </section>
@@ -110,11 +120,9 @@
         </ul>
       </section>
 
-      <section id="ficha" class="ficha" aria-labelledby="ficha-titulo">
-        <h2 id="ficha-titulo" class="ficha__titulo">Ficha del centro</h2>
-        <p class="ficha__vacio">Selecciona un centro en el mapa o en la lista para ver sus datos
-          y todas sus titulaciones.</p>
-      </section>
+      <!-- La ficha flota sobre la lista cuando se abre (position: absolute en
+           style.css); arranca oculta y vacía: su contenido lo pinta app.js. -->
+      <section id="ficha" class="ficha" hidden aria-labelledby="ficha-titulo"></section>
     </aside>
   </div>
 
