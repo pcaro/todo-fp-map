@@ -446,6 +446,78 @@ a:hover {
   box-shadow: none;
 }
 
+/* Popup del mapa: el contenido lo construye app.js con nodos, así que aquí solo
+   va la caja, la tipografía del shell y el botón de la ficha. */
+.maplibregl-popup-content {
+  padding: 0.6rem 0.75rem 0.7rem;
+  background: var(--panel);
+  border: 1px solid var(--filete-fuerte);
+  border-radius: var(--radio);
+  box-shadow: 0 3px 10px rgb(27 32 28 / 12%);
+  font-family: var(--sans);
+}
+
+.maplibregl-popup-close-button {
+  top: 0.2rem;
+  right: 0.2rem;
+  width: 1.3rem;
+  height: 1.3rem;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--tinta-suave);
+  font: 1rem/1 var(--sans);
+}
+
+.maplibregl-popup-close-button:hover {
+  background: var(--acento-suave);
+  color: var(--acento-oscuro);
+}
+
+.popup {
+  display: grid;
+  gap: 0.2rem;
+  /* Hueco para la ✕ del popup, que flota en la esquina. */
+  padding-right: 0.9rem;
+}
+
+.popup p {
+  margin: 0;
+}
+
+.popup__denominacion {
+  font-weight: 600;
+  font-size: 0.86rem;
+  line-height: 1.3;
+}
+
+.popup__municipio {
+  font-size: 0.76rem;
+  color: var(--tinta-suave);
+}
+
+.popup__ensenanza {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--acento-oscuro);
+}
+
+.popup__ficha {
+  justify-self: start;
+  margin-top: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--acento);
+  border-radius: var(--radio);
+  background: transparent;
+  color: var(--acento);
+  font: 500 0.76rem/1.2 var(--sans);
+  cursor: pointer;
+}
+
+.popup__ficha:hover {
+  background: var(--acento-suave);
+  color: var(--acento-oscuro);
+}
+
 /* Chip de la titulación activa: lo pinta app.js junto al buscador. */
 .cabecera__activa {
   flex: 0 1 auto;

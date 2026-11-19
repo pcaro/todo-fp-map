@@ -5,8 +5,11 @@
    — contrato — lo que consumen el resto de piezas de esta carpeta:
      · estado          estado central: {filtros, facetas, filas, ficha, datos}
      · consulta(op, args)  →  Promise<data>   habla el protocolo de worker.js
-     · aplicaFiltros() recalcula facetas + lista con estado.filtros y repinta
+     · aplicaFiltros() recalcula facetas, lista y mapa con estado.filtros
      · abreFicha(codigo)  carga la ficha de un centro en el panel derecho
+     · camaraMapa()  →  {zoom, lat, lng}   encuadre actual, 2 decimales
+     · mueveCamara({zoom, lat, lng})  aplica un encuadre de golpe (jumpTo)
+     · alMoverCamara(fn)  suscribe fn(camara) a cada moveend del mapa
 
    Todo vive en este módulo, que es el único entry point de la página; el mapa
    y la ficha leen de aquí en vez de duplicar estado. */
@@ -43,6 +46,7 @@ const estado = {
 const miles = new Intl.NumberFormat('es-ES', { useGrouping: 'always' });
 
 // Elementos del shell que se actualizan desde aquí.
+const elMapa = document.querySelector('#mapa');
 const elEstadoMapa = document.querySelector('#estado-mapa');
 const elCuenta = document.querySelector('#lista-cuenta');
 const elResultados = document.querySelector('.lista__resultados');
@@ -209,20 +213,23 @@ function falla(error) {
 // ------------------------------------------------------------------ filtros
 
 // Descarta respuestas de un repintado anterior: dos clics seguidos lanzan dos
-// pares facetas+lista y solo el último puede pintar.
+// tandas de consultas y solo la última puede pintar.
 let turno = 0;
 
-/* Recalcula facetas y lista con los filtros vigentes. Las dos consultas van en
-   paralelo (son independientes) y el repintado es todo o nada: los conteos del
-   sidebar y las filas siempre corresponden al mismo estado. */
+/* Recalcula facetas, lista y mapa con los filtros vigentes. Las tres consultas
+   van en paralelo (son independientes) y el repintado es todo o nada: los
+   conteos del sidebar, las filas y los puntos siempre corresponden al mismo
+   estado. La guarda de turno también cubre el mapa: una respuesta de un turno
+   viejo no llega a pintarse. */
 async function aplicaFiltros() {
   const mio = ++turno;
   renderTitulacionActiva();
   elCuenta.textContent = 'Filtrando…';
   try {
-    const [facetas, filas] = await Promise.all([
+    const [facetas, filas, geojson] = await Promise.all([
       consulta('facetas', estado.filtros),
       consulta('lista', estado.filtros),
+      consulta('geojson', estado.filtros),
     ]);
     if (mio !== turno) {
       return;
@@ -230,9 +237,8 @@ async function aplicaFiltros() {
     estado.facetas = facetas;
     renderFacetas(facetas);
     renderLista(filas);
-    // El cartel sobre el mapa es solo información de carga: con datos ya
-    // pintados, los números viven en el sidebar y en #lista-cuenta.
-    elEstadoMapa.hidden = true;
+    datosMapa = geojson;
+    pintaMapa();
   } catch (error) {
     if (mio === turno) {
       falla(error);
@@ -764,8 +770,228 @@ function cierraFicha() {
   marcaFila(null);
 }
 
+// ------------------------------------------------------------------ mapa
+
+// El mapa se crea al cargar el módulo, no cuando llegan los datos: las teselas
+// del estilo y la descarga de la db van en paralelo, y T9 puede consultar o
+// mover la cámara en cuanto parsea la URL.
+const mapa = new maplibregl.Map({
+  container: elMapa,
+  // OpenFreeMap: estilo y teselas sin API key, el mismo que usa el plugin de
+  // Datasette del README.
+  style: 'https://tiles.openfreemap.org/styles/liberty',
+  center: [-3.7, 40.4], // España peninsular + Baleares
+  zoom: 5,
+});
+
+// El mapa vive en una celda de grid que cambia de tamaño (breakpoints, plegar
+// facetas). MapLibre solo escucha el resize de la ventana, no del contenedor.
+new ResizeObserver(() => mapa.resize()).observe(elMapa);
+
+// Mismos valores que --acento, --acento-oscuro y --papel de style.css:
+// MapLibre no lee variables CSS.
+const ACENTO = '#2c5f4b';
+const ACENTO_OSCURO = '#234d3d';
+const PAPEL = '#f6f4ee';
+
+// El radio crece con el racimo: 14 px para un barrio, 26 px para una provincia
+// entera (a zoom 5 los mayores agrupan miles de puntos).
+const RADIO_CLUSTER = ['interpolate', ['linear'], ['get', 'point_count'], 0, 14, 100, 20, 750, 26];
+const RADIO_HALO = ['interpolate', ['linear'], ['get', 'point_count'], 0, 23, 100, 29, 750, 35];
+
+/* Queda en `datosMapa` la última colección calculada. aplicaFiltros la escribe
+   y montaMapa la pinta al terminar de cargar el estilo: puede llegar antes
+   cualquiera de los dos, así que el que llega tarde recoge lo del otro. */
+let datosMapa = null;
+
+// Un solo popup reutilizado: MapLibre no cierra el anterior al abrir otro.
+const popup = new maplibregl.Popup({ offset: 12, maxWidth: '18rem' });
+
+mapa.once('load', montaMapa);
+
+/* Source y capas existen solo cuando el estilo está cargado. Los manejadores de
+   click van por capa (`mapa.on(tipo, capa, ...)`), que exige que la capa ya
+   exista: por eso todo se monta aquí y no al crear el mapa. */
+function montaMapa() {
+  mapa.addSource('centros', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+    // 35k centro×titulación sin agrupar son una mancha. 60 px de radio agrupa
+    // lo que se lee junto a zoom 5 y deja de agrupar a 14, donde ya se
+    // distinguen centros vecinos.
+    cluster: true,
+    clusterMaxZoom: 14,
+    clusterRadius: 60,
+  });
+
+  // Halo: separa el racimo del mapa de fondo sin engordar el círculo que lleva
+  // el número.
+  mapa.addLayer({
+    id: 'clusters-halo',
+    type: 'circle',
+    source: 'centros',
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': ACENTO,
+      'circle-opacity': 0.18,
+      'circle-radius': RADIO_HALO,
+    },
+  });
+
+  mapa.addLayer({
+    id: 'clusters',
+    type: 'circle',
+    source: 'centros',
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': ACENTO,
+      'circle-radius': RADIO_CLUSTER,
+      'circle-stroke-color': PAPEL,
+      'circle-stroke-width': 2,
+    },
+  });
+
+  mapa.addLayer({
+    id: 'clusters-conteo',
+    type: 'symbol',
+    source: 'centros',
+    filter: ['has', 'point_count'],
+    layout: {
+      // Formato corto («1.2k»), el que ya calcula el source clustered.
+      'text-field': ['get', 'point_count_abbreviated'],
+      'text-font': ['Noto Sans Regular'],
+      'text-size': 12,
+      'text-allow-overlap': true,
+    },
+    paint: { 'text-color': PAPEL },
+  });
+
+  mapa.addLayer({
+    id: 'puntos',
+    type: 'circle',
+    source: 'centros',
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-color': ACENTO_OSCURO,
+      'circle-radius': 4,
+      'circle-stroke-color': PAPEL,
+      'circle-stroke-width': 1.5,
+    },
+  });
+
+  // Un racimo enseña lo que tiene dentro: dos niveles de zoom de golpe.
+  mapa.on('click', 'clusters', evento => {
+    mapa.easeTo({ center: evento.features[0].geometry.coordinates, zoom: mapa.getZoom() + 2 });
+  });
+
+  mapa.on('click', 'puntos', evento => {
+    const punto = evento.features[0];
+    popup
+      .setLngLat(punto.geometry.coordinates)
+      .setDOMContent(contenidoPopup(punto.properties))
+      .addTo(mapa);
+  });
+
+  // Las dos capas son clicables: el cursor lo dice antes de pinchar.
+  for (const capa of ['clusters', 'puntos']) {
+    mapa.on('mouseenter', capa, () => {
+      mapa.getCanvas().style.cursor = 'pointer';
+    });
+    mapa.on('mouseleave', capa, () => {
+      mapa.getCanvas().style.cursor = '';
+    });
+  }
+
+  pintaMapa();
+}
+
+/* Contenido del popup, construido con nodos y textContent como la ficha: las
+   denominaciones vienen del scraper y aquí no se interpreta HTML ajeno. */
+function contenidoPopup(propiedades) {
+  const caja = document.createElement('div');
+  caja.className = 'popup';
+
+  const denominacion = document.createElement('p');
+  denominacion.className = 'popup__denominacion';
+  denominacion.textContent = propiedades.denominacion;
+
+  const municipio = document.createElement('p');
+  municipio.className = 'popup__municipio';
+  municipio.textContent = propiedades.municipio;
+
+  caja.append(denominacion, municipio);
+
+  // Sin titulación filtrada, la del punto es una de las muchas del centro
+  // (una feature por centro×titulación): decirla sería engañoso.
+  if (estado.filtros.ensenanza) {
+    const ensenanza = document.createElement('p');
+    ensenanza.className = 'popup__ensenanza';
+    ensenanza.textContent = propiedades.ensenanza;
+    caja.append(ensenanza);
+  }
+
+  const ficha = document.createElement('button');
+  ficha.type = 'button';
+  ficha.className = 'popup__ficha';
+  ficha.textContent = 'Ver ficha';
+  ficha.addEventListener('click', () => {
+    popup.remove();
+    abreFicha(propiedades.codigo);
+  });
+
+  caja.append(ficha);
+  return caja;
+}
+
+/* Lleva al mapa la última colección calculada. Es idempotente: la llaman
+   aplicaFiltros (filtros nuevos) y montaMapa (estilo listo). */
+function pintaMapa() {
+  if (!datosMapa) {
+    return; // aún no hay filtros calculados: el cartel sigue puesto
+  }
+  const fuente = mapa.getSource('centros');
+  if (!fuente) {
+    return; // aún sin estilo: montaMapa vuelve a llamar al terminar
+  }
+  fuente.setData(datosMapa);
+  // Un popup abierto pertenece a la colección anterior: si el centro ya no
+  // está en el mapa, su ficha flotando encima es una contradicción.
+  popup.remove();
+  // El cartel central es información de carga del mapa: se apaga con el primer
+  // GeoJSON pintado, y desde ahí los números viven en el sidebar y en la lista.
+  elEstadoMapa.hidden = true;
+}
+
+// ------------------------------------------------------------------ cámara
+
+// 2 decimales ≈ 1 km: la precisión con la que T9 guarda el encuadre en la URL.
+// Más decimales alargan la URL sin cambiar lo que se ve.
+const redondea = numero => Math.round(numero * 100) / 100;
+
+/* Encuadre actual para serializar en la URL. */
+function camaraMapa() {
+  const centro = mapa.getCenter();
+  return { zoom: redondea(mapa.getZoom()), lat: redondea(centro.lat), lng: redondea(centro.lng) };
+}
+
+/* Aplica un encuadre venido de la URL. jumpTo y no easeTo: al cargar la página
+   no hay trayecto que enseñar ni nadie a quien esperar. */
+function mueveCamara({ zoom, lat, lng }) {
+  mapa.jumpTo({ center: [lng, lat], zoom });
+}
+
+// Quien quiera enterarse de que la cámara se movió (T9, para reescribir la URL)
+// se suscribe aquí. Hay un solo interesado: una variable, no un emisor.
+let alMover = null;
+
+function alMoverCamara(fn) {
+  alMover = fn;
+}
+
+mapa.on('moveend', () => alMover?.(camaraMapa()));
+
 // ------------------------------------------------------------------ exports
 
-export { estado, consulta, aplicaFiltros, abreFicha };
+export { estado, consulta, aplicaFiltros, abreFicha, camaraMapa, mueveCamara, alMoverCamara };
 
 arranca();
