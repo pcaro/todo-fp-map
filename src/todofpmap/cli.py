@@ -206,6 +206,10 @@ def cmd_lite(args: argparse.Namespace) -> None:
         DELETE FROM centros
          WHERE lat IS NULL
             OR codigo NOT IN (SELECT centro_codigo FROM oferta);
+        -- al borrar centros quedan sus enseñanzas colgando (no hay ON DELETE
+        -- CASCADE porque las vistas se sueltan antes)
+        DELETE FROM oferta
+         WHERE centro_codigo NOT IN (SELECT codigo FROM centros);
         UPDATE centros SET lat = round(lat, 5), lng = round(lng, 5);
         -- la PK compuesta de 5 columnas cuesta tanto como la tabla y en un
         -- artefacto de solo lectura no sirve de nada
